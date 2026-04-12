@@ -1,0 +1,36 @@
+{
+  "installCommand": "yarn install",
+  "buildCommand": "yarn build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/extract-from-image.ts": {
+      "maxDuration": 50
+    },
+    "api/scan-prescription.ts": {
+      "maxDuration": 50
+    },
+    "api/gemma.ts": {
+      "maxDuration": 50
+    },
+    "api/clean-transcript.ts": {
+      "maxDuration": 50
+    },
+    "api/generate-sample.ts": {
+      "maxDuration": 50
+    },
+    "api/generate-discharge-pdf.ts": {
+      "maxDuration": 50
+    },
+    "api/generate-medication-pdf.ts": {
+      "maxDuration": 50
+    },
+    "api/queue-db.ts": {
+      "maxDuration": 50
+    }
+  }
+}
