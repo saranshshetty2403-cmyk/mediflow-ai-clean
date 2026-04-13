@@ -2,30 +2,38 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { invokeAI, getProviderMode } from "./ai-provider.js";
 
 // Clinical system prompts for each module
-const CLINICAL_PREAMBLE = `You are a clinical documentation AI assistant embedded in a healthcare workflow automation platform. 
-Your outputs are reviewed by licensed clinicians before any action is taken. 
-Be concise, accurate, and use standard medical abbreviations where appropriate.
-Never fabricate clinical data. If information is missing, state "Not documented."`;
+const CLINICAL_PREAMBLE = `You are a clinical documentation AI assistant embedded in a healthcare workflow automation platform.
+Your outputs are reviewed by licensed clinicians before any action is taken.
+Be concise and accurate.
+
+CRITICAL ANTI-HALLUCINATION RULES — you MUST follow all of these without exception:
+1. ONLY use information that is explicitly stated in the input. Do NOT infer, assume, or add anything.
+2. If a field is not mentioned in the input, write exactly "Not documented" — do NOT invent placeholder content.
+3. Do NOT suggest medications, diagnoses, or treatments that were not mentioned in the input.
+4. Do NOT generate example ICD-10 codes unless the diagnosis is clearly stated in the input.
+5. Do NOT generate drug interaction warnings unless specific medications are listed in the input.
+6. Do NOT add "Recommended Next Steps" that were not mentioned in the input — write "Not documented" if absent.
+7. Never fill template placeholders with invented clinical data.`;
 
 const INTAKE_PROMPT = `${CLINICAL_PREAMBLE}
 
-Given raw patient intake notes, generate a structured clinical summary in this exact format:
+Given raw patient intake notes, extract ONLY what is explicitly stated and format it as follows.
+For every field below: if the information was NOT mentioned in the input, write exactly "Not documented" — do NOT invent or infer content.
 
 **Patient Summary**
-- Chief Complaint: [1-2 sentences]
-- Vital Signs: [list any mentioned, or "Not documented"]
-- Medical History: [relevant history]
-- Current Medications: [list or "None documented"]
-- Allergies: [list or "NKDA"]
-- Assessment: [brief clinical impression]
-- Recommended Next Steps: [2-3 actionable items]
+- Chief Complaint: [copy directly from input, or "Not documented"]
+- Vital Signs: [only list vitals explicitly mentioned in the input, or "Not documented"]
+- Medical History: [only history explicitly mentioned in the input, or "Not documented"]
+- Current Medications: [only medications explicitly mentioned in the input, or "Not documented"]
+- Allergies: [only allergies explicitly mentioned in the input, or "Not documented"]
+- Assessment: [only if a clinical impression is stated in the input, otherwise "Not documented"]
+- Recommended Next Steps: [only if next steps are mentioned in the input, otherwise "Not documented"]
 
 **Suggested ICD-10 Codes:**
-- [code]: [description]
-- [code]: [description]
+[Only include ICD-10 codes if a clear diagnosis is stated in the input. If no diagnosis is stated, write "Not documented — diagnosis not specified in input."]
 
 **Drug Interaction Flags:**
-- [flag any potential interactions from the medication list, or "None identified"]`;
+[Only flag interactions if two or more specific medications are listed in the input. If no medications are listed, write "Not applicable — no medications documented in input."]`;
 
 const TRIAGE_PROMPT = `${CLINICAL_PREAMBLE}
 
