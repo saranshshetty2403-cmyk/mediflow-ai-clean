@@ -78,7 +78,13 @@ import { useSettings } from "./useSettings";
 import SettingsDrawer from "./SettingsDrawer";
 // Lightweight inline markdown renderer — no external dependency needed
 const SimpleMarkdown = ({ children }: { children: string }) => {
-  const lines = (children || "").split("\n");
+  // Normalise bullet variants that some Ollama models emit as literal escape sequences
+  const normalised = (children || "")
+    .replace(/^u2022\s*/gm, "- ")
+    .replace(/^\u2022\s*/gm, "- ")
+    .replace(/^\u2013\s*/gm, "- ")
+    .replace(/^\u2014\s*/gm, "- ");
+  const lines = normalised.split("\n");
   return (
     <div className="text-sm leading-relaxed space-y-1">
       {lines.map((line, i) => {
