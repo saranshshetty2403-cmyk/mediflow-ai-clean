@@ -3598,7 +3598,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       {photoLoading ? (
                         <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading...</>
                       ) : (
-                        <><Camera className="w-3.5 h-3.5" /> Scan Report</>
+                        <><Camera className="w-3.5 h-3.5" /> Scan Image</>
                       )}
                     </button>
                     {/* Hidden file inputs — one for camera, one for gallery */}
