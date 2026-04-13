@@ -84,23 +84,23 @@ const SimpleMarkdown = ({ children }: { children: string }) => {
       {lines.map((line, i) => {
         if (/^#{1,3}\s/.test(line)) {
           const text = line.replace(/^#{1,3}\s/, "");
-          return <p key={i} className="font-semibold text-foreground mt-2">{text}</p>;
+          return <p key={i} className="font-semibold text-white mt-2">{text}</p>;
         }
         if (/^[-*]\s/.test(line)) {
           const text = line.replace(/^[-*]\s/, "");
-          return <p key={i} className="pl-3 text-muted-foreground before:content-['•'] before:mr-2 before:text-primary">{text}</p>;
+          return <p key={i} className="pl-3 text-gray-300 before:content-['\u2022'] before:mr-2 before:text-[var(--accent-primary)]">{text}</p>;
         }
         if (/^\d+\.\s/.test(line)) {
-          return <p key={i} className="pl-3 text-muted-foreground">{line}</p>;
+          return <p key={i} className="pl-3 text-gray-300">{line}</p>;
         }
         if (line.trim() === "") return <div key={i} className="h-1" />;
         // Inline bold
         const parts = line.split(/(\*\*[^*]+\*\*)/g);
         return (
-          <p key={i} className="text-muted-foreground">
+          <p key={i} className="text-gray-300">
             {parts.map((part, j) =>
               /^\*\*[^*]+\*\*$/.test(part)
-                ? <strong key={j} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>
+                ? <strong key={j} className="text-white font-semibold">{part.slice(2, -2)}</strong>
                 : part
             )}
           </p>
@@ -511,7 +511,7 @@ function StreamingText({ text }: { text: string }) {
     return () => clearInterval(interval);
   }, [text]);
   return (
-    <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+    <pre className="whitespace-pre-wrap font-sans text-sm text-white leading-relaxed">
       {displayed}
       {displayed.length < text.length && (
         <span className="inline-block w-0.5 h-4 bg-[#0D7377] ml-0.5 animate-pulse" />
