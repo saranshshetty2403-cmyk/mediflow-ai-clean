@@ -373,10 +373,10 @@ try {
 
 ## Local Model Routing (Ollama)
 
-All AI inference in MediFlow AI flows through a single shared helper at `api/_ai-provider.ts`. When `OLLAMA_URL` is set in the environment, this helper routes all inference to the local Ollama server using the OpenAI-compatible `/v1/chat/completions` endpoint — the same message format used by Google AI Studio, making it a true drop-in replacement.
+All AI inference in MediFlow AI flows through a single shared helper at `api/ai-provider.ts`. When `OLLAMA_URL` is set in the environment, this helper routes all inference to the local Ollama server using the OpenAI-compatible `/v1/chat/completions` endpoint — the same message format used by Google AI Studio, making it a true drop-in replacement.
 
 ```typescript
-// From api/_ai-provider.ts
+// From api/ai-provider.ts
 export function getProviderMode(): "ollama" | "google" {
   return process.env.OLLAMA_URL ? "ollama" : "google";
 }

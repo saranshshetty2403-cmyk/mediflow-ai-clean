@@ -12,7 +12,7 @@ This configuration is recommended for:
 
 ## How the Provider Routing Works
 
-All AI inference in MediFlow AI flows through a single shared helper at `api/_ai-provider.ts`. The routing decision is made at startup based on one environment variable:
+All AI inference in MediFlow AI flows through a single shared helper at `api/ai-provider.ts`. The routing decision is made at startup based on one environment variable:
 
 ```
 OLLAMA_URL is SET   →  All inference routes to your local Ollama server
@@ -228,7 +228,7 @@ When `OLLAMA_URL` is set:
 - The only network calls made are to your local Ollama endpoint
 - This satisfies ABDM data-residency requirements for Indian healthcare providers
 
-The `api/_ai-provider.ts` source code can be audited to verify this claim. The Ollama path calls only `${process.env.OLLAMA_URL}/v1/chat/completions` — no other external URLs.
+The `api/ai-provider.ts` source code can be audited to verify this claim. The Ollama path calls only `${process.env.OLLAMA_URL}/v1/chat/completions` — no other external URLs.
 
 ---
 

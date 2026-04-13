@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 // Ollama with gemma3:4b supports vision via the same OpenAI-compatible /v1/chat/completions
 // endpoint using image_url content blocks — identical to the Google AI Studio format.
 // When OLLAMA_URL is set, the callModel function routes to the local Ollama server instead.
-import { getProviderMode } from "./_ai-provider";
+import { getProviderMode } from "./ai-provider";
 
 // ── Non-medscan module prompts (unchanged) ─────────────────────────────────
 const MODULE_EXTRACT_PROMPTS: Record<string, string> = {

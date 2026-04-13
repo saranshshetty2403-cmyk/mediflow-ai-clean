@@ -131,7 +131,7 @@ Google's Gemma 4 (`gemma-4-31b-it`) was chosen as the primary AI engine for thre
 
 **2. Instruction-following and structured JSON output.** Clinical workflow automation requires deterministic, structured outputs — a medication table must have exactly the right fields; a triage routing decision must be one of a fixed set of departments. Gemma 4's instruction-tuned variant (`-it` suffix) reliably follows complex system prompts and produces valid JSON when prompted with a schema, which is critical for downstream processing in `api/scan-prescription.ts` and `api/gemma.ts`.
 
-**3. Open-weight availability for local deployment.** Because Gemma 4 is open-weight, healthcare organisations with strict data-residency requirements can run the model locally via Ollama or llama.cpp. MediFlow AI includes a local model integration layer (`api/_ai-provider.ts`) that routes all inference to a local Ollama endpoint when `OLLAMA_URL` is set, with zero code changes required. This design choice is supported by research showing that on-premise AI deployment significantly reduces HIPAA compliance risk in clinical settings [6].
+**3. Open-weight availability for local deployment.** Because Gemma 4 is open-weight, healthcare organisations with strict data-residency requirements can run the model locally via Ollama or llama.cpp. MediFlow AI includes a local model integration layer (`api/ai-provider.ts`) that routes all inference to a local Ollama endpoint when `OLLAMA_URL` is set, with zero code changes required. This design choice is supported by research showing that on-premise AI deployment significantly reduces HIPAA compliance risk in clinical settings [6].
 
 The Gemini 2.5 Flash model is used exclusively as a fallback for the MediScan vision endpoint when the primary Gemma 4 call times out — this is a resilience pattern, not a primary dependency.
 
@@ -316,7 +316,7 @@ For healthcare organisations that cannot send patient data to external APIs — 
 
 ### How It Works
 
-All AI inference in MediFlow AI flows through a single shared helper at `api/_ai-provider.ts`. The routing is controlled by one environment variable:
+All AI inference in MediFlow AI flows through a single shared helper at `api/ai-provider.ts`. The routing is controlled by one environment variable:
 
 ```
 OLLAMA_URL is SET   →  All inference routes to your local Ollama server
@@ -361,7 +361,7 @@ Every API response includes a `provider` field:
 
 ### Data Privacy Guarantee
 
-When `OLLAMA_URL` is set, the only network calls made by MediFlow AI are to `${OLLAMA_URL}/v1/chat/completions`. No patient data is sent to Google, OpenAI, or any external service. The `api/_ai-provider.ts` source code can be audited to verify this.
+When `OLLAMA_URL` is set, the only network calls made by MediFlow AI are to `${OLLAMA_URL}/v1/chat/completions`. No patient data is sent to Google, OpenAI, or any external service. The `api/ai-provider.ts` source code can be audited to verify this.
 
 ---
 

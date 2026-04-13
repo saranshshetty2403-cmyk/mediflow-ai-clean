@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { invokeAI, getProviderMode } from "./_ai-provider";
+import { invokeAI, getProviderMode } from "./ai-provider";
 
 // Clinical system prompts for each module
 const CLINICAL_PREAMBLE = `You are a clinical documentation AI assistant embedded in a healthcare workflow automation platform. 
@@ -189,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // invokeAI automatically selects Ollama (local) or Google AI Studio (cloud)
-    // based on the OLLAMA_URL environment variable. See api/_ai-provider.ts.
+    // based on the OLLAMA_URL environment variable. See api/ai-provider.ts.
     const result = await invokeAI({
       systemPrompt,
       userMessage: input,

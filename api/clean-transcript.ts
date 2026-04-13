@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { invokeAI, getProviderMode } from "./_ai-provider";
+import { invokeAI, getProviderMode } from "./ai-provider";
 // Provider routing (Ollama local vs Google AI Studio cloud) is handled by _ai-provider.ts.
 // Set OLLAMA_URL env var to route all inference to a local Ollama server.
 
