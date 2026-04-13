@@ -133,13 +133,13 @@ async function callOllama(req: AIRequest, overrideUrl?: string, overrideModel?: 
     model: string;
   };
 
-  const content = data.choices?.[0]?.message?.content?.trim();
-  if (!content) {
+  const rawContent = data.choices?.[0]?.message?.content?.trim();
+  if (!rawContent) {
     throw new Error(`Ollama returned an empty response for model "${model}".`);
   }
 
   return {
-    content,
+    content: stripThoughtTags(rawContent),
     model: `${model} (Ollama local)`,
     provider: "ollama",
   };
@@ -264,11 +264,14 @@ async function callGoogleAI(req: AIRequest, apiKey: string): Promise<AIResponse>
 }
 
 /**
- * Strip <think>...</think> tags that some models (e.g. Gemma 4 reasoning mode)
- * include in their output before the actual clinical response.
+ * Strip reasoning/thought tags that Gemma models include before the actual clinical response.
+ * Handles both <think>...</think> (some Gemma variants) and <thought>...</thought> (Gemma 4).
  */
 function stripThoughtTags(text: string): string {
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
+    .trim();
 }
 
 /**
