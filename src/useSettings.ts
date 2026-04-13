@@ -39,7 +39,7 @@ const DEFAULTS: AppSettings = {
   soundEnabled: false,
   providerMode: "gemma",
   ollamaUrl: "",
-  ollamaModel: "gemma3:4b",
+  ollamaModel: "",
 };
 
 // Accent colour CSS values
