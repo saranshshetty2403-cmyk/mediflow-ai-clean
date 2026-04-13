@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import PDFDocument from "pdfkit";
-import path from "path";
-import fs from "fs";
 
-// ── Brand colours ──────────────────────────────────────────────────────────
+// ── Brand colours ───────────────────────────────────────────────────────────────────────────
 const TEAL = "#0D7377";
 const MID_GREY = "#6b7280";
 const DARK_TEXT = "#111827";
@@ -11,27 +9,23 @@ const BORDER = "#d1d5db";
 const MARGIN = 50;
 const PAGE_BOTTOM = 710; // safe bottom boundary (letter = 792pt)
 
-// ── REGIONAL LANGUAGE SUPPORT ──────────────────────────────────────────────
+// ── REGIONAL LANGUAGE SUPPORT ───────────────────────────────────────────────────────────────────────────
 // PDFKit's built-in Helvetica font only covers Latin characters.
-// For Indian scripts (Devanagari, Bengali, Tamil, Telugu, Kannada, Malayalam,
-// Gujarati), we use Noto Sans fonts from Google Fonts — open-source Unicode
-// fonts that cover all these scripts perfectly.
+// For Indian scripts we fetch Noto Sans fonts directly from Google Fonts CDN
+// at request time. This avoids all file-system path issues in Vercel serverless.
 //
-// Font files are stored in api/fonts/ and bundled with the Vercel deployment.
-// Total font bundle size: ~1.1MB (well within Vercel's 50MB function limit).
+// Marathi uses the same Devanagari script as Hindi.
 //
-// Marathi uses the same Devanagari script as Hindi, so NotoSansDevanagari covers both.
-//
-// Font mapping: language code → Noto Sans TTF filename
-const NOTO_FONT_MAP: Record<string, string> = {
-  hi: "NotoSansDevanagari-Regular.ttf", // Hindi (Devanagari script)
-  mr: "NotoSansDevanagari-Regular.ttf", // Marathi (also Devanagari)
-  bn: "NotoSansBengali-Regular.ttf",    // Bengali
-  ta: "NotoSansTamil-Regular.ttf",      // Tamil
-  te: "NotoSansTelugu-Regular.ttf",     // Telugu
-  kn: "NotoSansKannada-Regular.ttf",    // Kannada
-  ml: "NotoSansMalayalam-Regular.ttf",  // Malayalam
-  gu: "NotoSansGujarati-Regular.ttf",   // Gujarati
+// Font mapping: language code → Google Fonts CDN URL for the Noto Sans TTF
+const NOTO_FONT_CDN: Record<string, string> = {
+  hi: "https://fonts.gstatic.com/s/notosansdevanagari/v30/TuGoUUFzXI5FBtUq5a8bjKYTZjtRU6Sgv3NaV_SNmI0b8QQCQmHn6B2OHjbL_08AlXQly-A.ttf",
+  mr: "https://fonts.gstatic.com/s/notosansdevanagari/v30/TuGoUUFzXI5FBtUq5a8bjKYTZjtRU6Sgv3NaV_SNmI0b8QQCQmHn6B2OHjbL_08AlXQly-A.ttf",
+  bn: "https://fonts.gstatic.com/s/notosansbengali/v33/Cn-SJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mcSPVFpVEqE-6KmsolLudA.ttf",
+  ta: "https://fonts.gstatic.com/s/notosanstamil/v31/ieVc2YdFI3GCY6SyQy1KfStzYKZgzN1z4LKDbeZce-0429tBManUktuex7vGo70R.ttf",
+  te: "https://fonts.gstatic.com/s/notosanstelugu/v30/0FlxVOGZlE2Rrtr-HmgkMWJNjJ5_RyT8o8c7fHkeg-esVC5dzHkHIJQqrEntezbqQQ.ttf",
+  kn: "https://fonts.gstatic.com/s/notosanskannada/v32/8vIs7xs32H97qzQKnzfeXycxXZyUmySvZWItmf1fe6TVmgop9ndpS-BqHEyGrDvNzSI.ttf",
+  ml: "https://fonts.gstatic.com/s/notosansmalayalam/v29/sJoi3K5XjsSdcnzn071rL37lpAOsUThnDZIfPdbeSNzVakglNM-Qw8EaeB8Nss-_RuD9BA.ttf",
+  gu: "https://fonts.gstatic.com/s/notosansgujarati/v27/wlpWgx_HC1ti5ViekvcxnhMlCVo3f5pv17ivlzsUB14gg1TMR2Gw4VceEl7MA_ypFwPM.ttf",
 };
 
 // Static label translations for the PDF's non-AI-generated text.
@@ -291,7 +285,7 @@ function renderInline(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -320,15 +314,28 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!content) return res.status(400).json({ error: "Missing content" });
 
-  // ── FONT SELECTION ─────────────────────────────────────────────────────
-  // Determine which font to use for body text based on the selected language.
+  // ── FONT SELECTION ───────────────────────────────────────────────────────────────────────────
   // English uses PDFKit's built-in Helvetica (no file needed).
-  // All Indian scripts use the corresponding Noto Sans TTF from api/fonts/.
+  // Indian scripts: fetch the Noto Sans TTF from Google Fonts CDN at request time.
+  // This avoids all file-system path issues in Vercel's serverless runtime.
   const lang = language && language !== "en" ? language : "en";
   const labels = LABELS[lang] ?? LABELS.en;
 
-  // Register the appropriate Noto Sans font for non-English languages
   let bodyFont = "Helvetica";
+  let fontBuffer: Buffer | null = null;
+
+  // Fetch the Noto Sans font from Google Fonts CDN for non-English languages.
+  // This avoids all file-system path issues in Vercel's serverless runtime.
+  if (lang !== "en" && NOTO_FONT_CDN[lang]) {
+    try {
+      const fontRes = await fetch(NOTO_FONT_CDN[lang]);
+      if (fontRes.ok) {
+        fontBuffer = Buffer.from(await fontRes.arrayBuffer());
+      }
+    } catch {
+      // Fall back to Helvetica if CDN fetch fails
+    }
+  }
 
   const docDate = generatedAt
     ? new Date(generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
@@ -351,18 +358,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     },
   });
 
-  // Register the appropriate Noto Sans font for non-English languages after doc creation.
-  // Use process.cwd() per Vercel docs — resolves to the project root in the serverless runtime.
-  // Font files are in api/fonts/ and included via vercel.json "includeFiles".
-  if (lang !== "en" && NOTO_FONT_MAP[lang]) {
-    const fontFileName = NOTO_FONT_MAP[lang];
-    const fontPath = path.join(process.cwd(), "api", "fonts", fontFileName);
-    if (fs.existsSync(fontPath)) {
-      const fontName = `NotoSans-${lang}`;
-      doc.registerFont(fontName, fontPath);
-      bodyFont = fontName;
-    }
-    // If font file not found, fall back to Helvetica (graceful degradation).
+  // Register the fetched font buffer with PDFKit
+  if (fontBuffer) {
+    const fontName = `NotoSans-${lang}`;
+    doc.registerFont(fontName, fontBuffer);
+    bodyFont = fontName;
   }
 
   const chunks: Buffer[] = [];
