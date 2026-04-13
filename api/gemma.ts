@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { invokeAI, getProviderMode } from "./ai-provider";
+import { invokeAI, getProviderMode } from "./ai-provider.js";
 
 // Clinical system prompts for each module
 const CLINICAL_PREAMBLE = `You are a clinical documentation AI assistant embedded in a healthcare workflow automation platform. 
