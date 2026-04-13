@@ -3,90 +3,24 @@ import { invokeAI, getProviderMode } from "./ai-provider.js";
 // Provider routing (Ollama local vs Google AI Studio cloud) is handled by _ai-provider.ts.
 // Set OLLAMA_URL env var to route all inference to a local Ollama server.
 
-const MODULE_FORMAT_PROMPTS: Record<string, string> = {
-  intake: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
+// IMPORTANT: These prompts are GRAMMAR-ONLY.
+// The AI must NEVER add, invent, or infer any medical information not spoken by the user.
+// It only fixes grammar, removes filler words, and removes repeated phrases.
+const GRAMMAR_ONLY_SYSTEM_PROMPT = `You are a medical transcription editor. Your ONLY job is to clean up a raw voice transcript.
 
-Your job is to:
-1. Remove ALL duplicate or repeated sentences/phrases (keep only one occurrence)
-2. Remove filler words (um, uh, like, you know, etc.)
-3. Organize the content into a clean clinical intake note with these sections where applicable:
-   - Patient: [Name, Age, Sex if mentioned]
-   - Chief Complaint:
-   - History of Present Illness:
-   - Vital Signs: (if mentioned)
-   - Medications: (if mentioned)
-   - Allergies: (if mentioned)
-   - Medical History: (if mentioned)
-4. Use professional clinical language
-5. Keep it concise but complete
+STRICT RULES — you MUST follow all of these:
+1. Fix grammar and punctuation errors.
+2. Remove filler words (um, uh, like, you know, hmm, er, etc.).
+3. Remove exact duplicate sentences or phrases (keep only the first occurrence).
+4. Capitalise the first letter of each sentence.
+5. DO NOT add any information that was not spoken by the user.
+6. DO NOT invent, infer, or suggest any medical terms, diagnoses, medications, symptoms, or clinical details.
+7. DO NOT reorganise or reformat the content into sections or headers.
+8. DO NOT change the meaning of any sentence.
+9. Keep the output in the same language as the input.
+10. Return ONLY the cleaned transcript text, nothing else — no explanations, no preamble.
 
-Return ONLY the formatted note, no explanations.`,
-
-  triage: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
-
-Your job is to:
-1. Remove ALL duplicate or repeated sentences/phrases (keep only one occurrence)
-2. Remove filler words (um, uh, like, you know, etc.)
-3. Organize the content into a clean triage note with these sections where applicable:
-   - Patient: [Name, Age, Sex if mentioned]
-   - Chief Complaint:
-   - Symptom Description:
-   - Onset & Duration:
-   - Severity (1-10):
-   - Associated Symptoms:
-4. Use professional clinical language
-5. Keep it concise but complete
-
-Return ONLY the formatted note, no explanations.`,
-
-  discharge: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
-
-Your job is to:
-1. Remove ALL duplicate or repeated sentences/phrases (keep only one occurrence)
-2. Remove filler words (um, uh, like, you know, etc.)
-3. Organize the content into a clean discharge note with these sections where applicable:
-   - Patient: [Name, Age, Sex if mentioned]
-   - Diagnosis:
-   - Procedures Performed:
-   - Discharge Medications:
-   - Follow-up Instructions:
-   - Warning Signs to Watch For:
-4. Use professional clinical language
-
-Return ONLY the formatted note, no explanations.`,
-
-  urgency: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
-
-Your job is to:
-1. Remove ALL duplicate or repeated sentences/phrases (keep only one occurrence)
-2. Remove filler words (um, uh, like, you know, etc.)
-3. Organize the content into a clean urgency assessment note with these sections where applicable:
-   - Patient: [Name, Age, Sex if mentioned]
-   - Presenting Symptoms:
-   - Onset & Duration:
-   - Severity:
-   - Vital Signs: (if mentioned)
-   - Relevant History:
-4. Use professional clinical language
-
-Return ONLY the formatted note, no explanations.`,
-
-  followup: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
-
-Your job is to:
-1. Remove ALL duplicate or repeated sentences/phrases (keep only one occurrence)
-2. Remove filler words (um, uh, like, you know, etc.)
-3. Organize the content into a clean follow-up note with these sections where applicable:
-   - Patient: [Name, Age, Sex if mentioned]
-   - Reason for Follow-up:
-   - Current Status:
-   - Medications:
-   - Pending Tests/Referrals:
-   - Next Steps:
-4. Use professional clinical language
-
-Return ONLY the formatted note, no explanations.`,
-};
+If the user said "patient has chest pain and fever", output exactly that (cleaned) — do NOT add "possible cardiac event" or any other inference.`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -103,24 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // { mode: "gemma" }                                          → Gemma 4 cloud
   // undefined                                                   → env-var routing
   // ───────────────────────────────────────────────────────────────────────────
-  const { rawTranscript, module, _providerOverride } = req.body as {
+  const { rawTranscript, _providerOverride } = req.body as {
     rawTranscript: string;
     module: string;
+    _providerOverride?: unknown;
   };
 
   if (!rawTranscript || rawTranscript.trim().length < 5) {
     return res.status(400).json({ error: "Transcript too short" });
   }
 
-  const systemPrompt = MODULE_FORMAT_PROMPTS[module] ?? MODULE_FORMAT_PROMPTS.intake;
-
   try {
     // invokeAI routes to Ollama (local) or Google AI Studio (cloud) based on OLLAMA_URL env var.
     const result = await invokeAI({
-      systemPrompt,
+      systemPrompt: GRAMMAR_ONLY_SYSTEM_PROMPT,
       userMessage: `RAW TRANSCRIPT:\n${rawTranscript}`,
       maxTokens: 1024,
-      temperature: 0.2,
+      temperature: 0.1,
       _providerOverride,
     });
 

@@ -1302,6 +1302,9 @@ export default function Dashboard() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const rawTranscriptRef = useRef<string>("");
+  // shouldStopRef: true only when user explicitly taps Stop
+  // Prevents the browser's auto-silence-timeout from ending the session
+  const shouldStopRef = useRef<boolean>(false);
 
   // Onboarding hint: show once per module switch when input is empty
   const [showSampleHint, setShowSampleHint] = useState(true);
@@ -1630,14 +1633,9 @@ export default function Dashboard() {
       const confidence = confidenceFromServer ?? Math.floor(82 + Math.random() * 15);
 
       // ── PATIENT NAME & AGE/SEX EXTRACTION ────────────────────────────────────
-      // Handles a wide variety of real-world clinical note formats:
-      //   "Patient: Ravi Kumar, 45M"         → name + age/sex together
-      //   "Patient: Ravi Kumar. Age: 45. M." → name + separate age/sex fields
-      //   "45M admitted for..."               → age/sex without explicit name
-      //   "patient ravi kumar 38 year old male" → loose prose format
-      //   "Name: Priya Sharma\nAge: 32F"      → structured field format
-      //   "PRIYA SHARMA, 32F"                 → all-caps name
-      //   "Pt: J. Mehta, 60 yr old male"      → abbreviated prefix
+      // STRICT extraction: only accept values we are confident about.
+      // If name or age is missing/uncertain → show modal so user fills it in.
+      // This prevents clinical stopwords or random numbers being stored as names/ages.
       // ─────────────────────────────────────────────────────────────────────────
 
       let extractedName: string | undefined;
@@ -1646,79 +1644,113 @@ export default function Dashboard() {
       // Helper: normalise age+sex into compact form e.g. "45M", "32F"
       const normaliseAgeSex = (age: string, sex?: string): string => {
         const a = age.trim();
-        if (!sex) return a; // already compact like "45M"
+        if (!sex) return a;
         const s = sex.trim().toUpperCase();
         const sexChar = s.startsWith("M") ? "M" : s.startsWith("F") ? "F" : "";
         return sexChar ? `${a}${sexChar}` : a;
       };
 
-      // Helper: title-case a name (handles all-caps, all-lower, mixed)
+      // Helper: title-case a name
       const toTitleCase = (s: string) =>
         s.replace(/\b([A-Za-z])([A-Za-z]*)/g, (_, first, rest) => first.toUpperCase() + rest.toLowerCase());
 
-      // Pattern 1: "Patient[:][ ]Name[,][ ]45M" or "Patient[:][ ]Name[,][ ]45 M"
-      //   Also handles "Pt:", "Pt.", "patient name:"
-      //   Name stops at sentence-ending punctuation (. ! ?) or a newline
+      // Clinical stopwords — if the extracted "name" contains any of these it is NOT a real name
+      const CLINICAL_STOPWORDS = [
+        "chief", "complaint", "history", "present", "illness", "vital", "signs",
+        "medication", "allergy", "allergies", "diagnosis", "procedure", "discharge",
+        "follow", "assessment", "plan", "note", "report", "reports", "experiencing",
+        "accelerated", "heartbeat", "headache", "pain", "fever", "cough", "nausea",
+        "vomiting", "dizziness", "shortness", "breath", "chest", "abdomen", "admitted",
+        "presenting", "complains", "complaining", "patient", "hospital", "clinic",
+        "doctor", "nurse", "physician", "treatment", "symptoms", "symptom",
+      ];
+
+      // Validate that a candidate string looks like a real human name:
+      //   - 2+ words (first + last name minimum)
+      //   - Each word starts with a capital (after title-casing)
+      //   - No clinical stopwords
+      //   - Not too long (names are typically < 5 words)
+      const isValidName = (candidate: string): boolean => {
+        const words = candidate.trim().split(/\s+/);
+        if (words.length < 2 || words.length > 5) return false;
+        const lower = candidate.toLowerCase();
+        if (CLINICAL_STOPWORDS.some(w => lower.includes(w))) return false;
+        // Each word should look like a name token (letters, hyphens, apostrophes, dots)
+        return words.every(w => /^[A-Za-z][A-Za-z.'\-]*$/.test(w));
+      };
+
+      // Validate age: must be a plausible human age (1–120)
+      const isValidAge = (ageStr: string): boolean => {
+        const n = parseInt(ageStr, 10);
+        return !isNaN(n) && n >= 1 && n <= 120;
+      };
+
+      // ── NAME EXTRACTION (strict — only labelled fields) ──────────────────────
+      // Only extract from explicitly labelled fields: "Patient:", "Pt:", "Name:"
+      // We do NOT attempt to guess names from unlabelled text.
+
+      // Pattern 1: "Patient[:][ ]Name[,][ ]45M" — name + age/sex on same line
       const p1 = input.match(
         /(?:patient(?:\s+name)?|\bpt)\.?[:\s]+([A-Za-z][A-Za-z.'\-]*(?: [A-Za-z][A-Za-z.'\-]*)*)(?:[,\s]+)(\d{1,3})\s*([MFmf](?:\b|$))?/i
       );
       if (p1) {
-        // Strip any trailing punctuation that got captured
-        extractedName = toTitleCase(p1[1].replace(/[.!?]+$/, '').trim());
-        extractedAge = p1[3] ? normaliseAgeSex(p1[2], p1[3]) : p1[2];
+        const candidate = toTitleCase(p1[1].replace(/[.!?]+$/, '').trim());
+        if (isValidName(candidate)) {
+          extractedName = candidate;
+          if (isValidAge(p1[2])) extractedAge = p1[3] ? normaliseAgeSex(p1[2], p1[3]) : p1[2];
+        }
       }
 
-      // Pattern 2: "Patient: Name" (no age on same line)
-      //   Name stops at sentence-ending punctuation, comma, or newline
+      // Pattern 2: "Patient: Name" — name only, no age on same line
       if (!extractedName) {
         const p2 = input.match(
           /(?:patient(?:\s+name)?|\bpt)\.?[:\s]+([A-Za-z][A-Za-z.'\-]*(?: [A-Za-z][A-Za-z.'\-]*)*)(?=[.,!?\n]|$)/i
         );
-        if (p2) extractedName = toTitleCase(p2[1].trim());
+        if (p2) {
+          const candidate = toTitleCase(p2[1].trim());
+          if (isValidName(candidate)) extractedName = candidate;
+        }
       }
 
       // Pattern 3: "Name: Priya Sharma" structured field
       if (!extractedName) {
-        const p3 = input.match(/\bname[:\s]+([A-Za-z][A-Za-z.'\-]+(?: [A-Za-z][A-Za-z.'\-]+)+)/i);
-        if (p3) extractedName = toTitleCase(p3[1].trim());
+        const p3 = input.match(/^\s*name[:\s]+([A-Za-z][A-Za-z.'\-]+(?: [A-Za-z][A-Za-z.'\-]+)+)/im);
+        if (p3) {
+          const candidate = toTitleCase(p3[1].trim());
+          if (isValidName(candidate)) extractedName = candidate;
+        }
       }
 
-      // Age/sex extraction — two-pass approach:
-      //   Pass 1: find the age number (and sex if immediately adjacent)
-      //   Pass 2: if sex not yet found, scan the whole input for any sex indicator
+      // ── AGE/SEX EXTRACTION (strict — only plausible human ages) ──────────────
+      // Only accept ages from explicitly labelled contexts or compact "45M" format.
+      // Never grab numbers from phrases like "past 2 days", "3 times daily".
+
       let rawAge: string | undefined;
       let rawSex: string | undefined;
 
-      // Pass 1a — "45 yr old male", "45-year-old female", "45 y/o male" (age + sex in one phrase)
+      // Pass 1a — "45 yr old male", "45-year-old female", "45 y/o male"
       const pB = input.match(/\b(\d{1,3})[-\s]?(?:year(?:s)?[-\s]?old|yr(?:s)?[-\s]?old|yr|y\/o)[,\s]*(male|female|m|f)(?:\b|$)/i);
-      if (pB) { rawAge = pB[1]; rawSex = pB[2]; }
+      if (pB && isValidAge(pB[1])) { rawAge = pB[1]; rawSex = pB[2]; }
 
       // Pass 1b — compact "45M", "32F" (letter immediately adjacent, no space)
+      //   Must be preceded by a word boundary and not followed by letters (avoids "2mg", "10ml")
       if (!rawAge) {
-        const pA = input.match(/\b(\d{1,3})([MFmf])(?!\w)/);
-        if (pA) { rawAge = pA[1]; rawSex = pA[2]; }
+        const pA = input.match(/(?:^|[\s,;:(])([1-9]\d{0,2})([MFmf])(?![\w])/);
+        if (pA && isValidAge(pA[1])) { rawAge = pA[1]; rawSex = pA[2]; }
       }
 
       // Pass 1c — "Age/Sex: 45M" or "Age: 45" structured field
       if (!rawAge) {
         const pC = input.match(/\bage(?:\/sex)?[:\s]+(\d{1,3})\s*([MFmf])?(?:\b|$)/i);
-        if (pC) { rawAge = pC[1]; if (pC[2]) rawSex = pC[2]; }
+        if (pC && isValidAge(pC[1])) { rawAge = pC[1]; if (pC[2]) rawSex = pC[2]; }
       }
 
-      // Pass 1d — "Age: 45" without sex (plain number)
-      if (!rawAge) {
-        const pD = input.match(/\bage[:\s]+(\d{1,3})/i);
-        if (pD) rawAge = pD[1];
-      }
-
-      // Pass 2 — if we have an age but no sex yet, scan whole input for any sex indicator
+      // Pass 2 — if we have an age but no sex yet, scan for sex indicator
       if (rawAge && !rawSex) {
-        // "Sex: Male", "Gender: Female"
         const sexField = input.match(/\b(?:sex|gender)[:\s]+(male|female|m|f)(?:\b|$)/i);
         if (sexField) {
           rawSex = sexField[1];
         } else {
-          // Standalone "male" or "female" anywhere in text
           const standaloneSex = input.match(/\b(male|female)\b/i);
           if (standaloneSex) rawSex = standaloneSex[1];
         }
@@ -1746,11 +1778,11 @@ export default function Dashboard() {
         urgencyReasons: urgencyReasons && urgencyReasons.length > 0 ? urgencyReasons : undefined,
       };
 
-      if (!newResult.patientName) {
-        // No name found in input — ask the user
+      if (!newResult.patientName || !newResult.patientAge) {
+        // Name or age/sex not found (or was uncertain) — ask the user to fill in
         setPendingResult(newResult);
-        setModalName("");
-        setModalAge("");
+        setModalName(newResult.patientName ?? "");
+        setModalAge(newResult.patientAge ?? "");
         setShowPatientModal(true);
       } else {
         setResult(newResult);
@@ -1902,57 +1934,88 @@ export default function Dashboard() {
       return;
     }
     rawTranscriptRef.current = "";
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
+    shouldStopRef.current = false;
 
-    recognition.onstart = () => {
-      toast("🎙️ Recording... speak now. Tap the mic again to stop.", { duration: 60000, id: "voice-recording" });
-    };
+    // createSession builds a fresh SpeechRecognition instance and starts it.
+    // On auto-end (silence timeout) it restarts automatically UNLESS the user
+    // has explicitly tapped Stop (shouldStopRef.current === true).
+    const createSession = () => {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
 
-    recognition.onresult = (event: any) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          rawTranscriptRef.current += " " + event.results[i][0].transcript;
-          // Show live feedback of what was heard
-          toast(`🎙️ Heard: "${event.results[i][0].transcript.slice(0, 60)}..."`, { duration: 2000, id: "voice-live" });
+      recognition.onstart = () => {
+        // Only show the toast on the first start, not on auto-restarts
+        if (!isRecording) {
+          toast("🎙️ Recording... speak now. Tap the mic again to stop.", { duration: 600000, id: "voice-recording" });
         }
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      toast.dismiss("voice-recording");
-      setIsRecording(false);
-      const errMap: Record<string, string> = {
-        "not-allowed": "Microphone permission denied. Please allow mic access and try again.",
-        "no-speech": "No speech detected. Please speak louder or closer to the mic.",
-        "network": "Network error during voice recognition. Check your connection.",
-        "audio-capture": "No microphone found. Please connect a mic and try again.",
-        "aborted": "Recording was cancelled.",
       };
-      const msg = errMap[event.error] ?? `Voice error: ${event.error}`;
-      toast.error(`❌ ${msg}`, { duration: 8000 });
+
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            rawTranscriptRef.current += " " + event.results[i][0].transcript;
+            toast(`🎙️ Heard: "${event.results[i][0].transcript.slice(0, 60)}"`, { duration: 2000, id: "voice-live" });
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        // "no-speech" is a normal silence timeout — restart silently
+        if (event.error === "no-speech" && !shouldStopRef.current) {
+          return; // onend will fire and restart
+        }
+        // "aborted" fires when we call .stop() — ignore it
+        if (event.error === "aborted") return;
+        toast.dismiss("voice-recording");
+        setIsRecording(false);
+        const errMap: Record<string, string> = {
+          "not-allowed": "Microphone permission denied. Please allow mic access and try again.",
+          "network": "Network error during voice recognition. Check your connection.",
+          "audio-capture": "No microphone found. Please connect a mic and try again.",
+        };
+        const msg = errMap[event.error] ?? `Voice error: ${event.error}`;
+        toast.error(`❌ ${msg}`, { duration: 8000 });
+      };
+
+      recognition.onend = () => {
+        if (shouldStopRef.current) {
+          // User tapped Stop — process the transcript
+          toast.dismiss("voice-recording");
+          setIsRecording(false);
+          const raw = rawTranscriptRef.current.trim();
+          if (raw) {
+            processTranscript(raw);
+          } else {
+            toast.error("🎙️ No speech captured. Please try again.", { duration: 5000 });
+          }
+        } else {
+          // Auto-ended due to silence — restart to keep recording
+          try {
+            const next = createSession();
+            recognitionRef.current = next;
+            next.start();
+          } catch {
+            // If restart fails, treat as user stop
+            shouldStopRef.current = true;
+            toast.dismiss("voice-recording");
+            setIsRecording(false);
+            const raw = rawTranscriptRef.current.trim();
+            if (raw) processTranscript(raw);
+          }
+        }
+      };
+
+      return recognition;
     };
 
-    // onend fires when browser auto-stops (silence timeout) OR when we call .stop()
-    // We process whatever was captured either way
-    recognition.onend = () => {
-      toast.dismiss("voice-recording");
-      setIsRecording(false);
-      const raw = rawTranscriptRef.current.trim();
-      if (raw) {
-        processTranscript(raw);
-      } else {
-        // Only show error if we were actually recording (not just a cancelled start)
-        toast.error("🎙️ No speech captured. Please try again.", { duration: 5000 });
-      }
-    };
-
+    const recognition = createSession();
     recognitionRef.current = recognition;
     try {
       recognition.start();
       setIsRecording(true);
+      toast("🎙️ Recording... speak now. Tap the mic again to stop.", { duration: 600000, id: "voice-recording" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error(`❌ Could not start recording: ${msg}`, { duration: 8000 });
@@ -1960,7 +2023,8 @@ export default function Dashboard() {
   };
 
   const stopRecording = () => {
-    // Just stop the recognition — onend will fire and call processTranscript
+    // Mark as intentional stop so onend processes the transcript instead of restarting
+    shouldStopRef.current = true;
     toast.dismiss("voice-recording");
     toast("⏹️ Stopping... processing your note.", { duration: 3000, id: "voice-stopping" });
     recognitionRef.current?.stop();
