@@ -27,7 +27,8 @@
       "maxDuration": 50
     },
     "api/generate-discharge-pdf.ts": {
-      "maxDuration": 50
+      "maxDuration": 50,
+      "includeFiles": "api/fonts/**"
     },
     "api/generate-medication-pdf.ts": {
       "maxDuration": 50

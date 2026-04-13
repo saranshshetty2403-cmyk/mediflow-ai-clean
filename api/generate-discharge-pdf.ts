@@ -329,9 +329,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   // Register the appropriate Noto Sans font for non-English languages
   let bodyFont = "Helvetica";
-  let fontRegistered = false;
-
-  const docForFont = null; // will register after doc creation
 
   const docDate = generatedAt
     ? new Date(generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
@@ -354,20 +351,18 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     },
   });
 
-  // Register Noto Sans font for the selected language after doc creation
+  // Register the appropriate Noto Sans font for non-English languages after doc creation.
+  // Use process.cwd() per Vercel docs — resolves to the project root in the serverless runtime.
+  // Font files are in api/fonts/ and included via vercel.json "includeFiles".
   if (lang !== "en" && NOTO_FONT_MAP[lang]) {
     const fontFileName = NOTO_FONT_MAP[lang];
-    // __dirname resolves to the api/ directory in both local dev and Vercel deployment
-    const fontPath = path.join(__dirname, "fonts", fontFileName);
+    const fontPath = path.join(process.cwd(), "api", "fonts", fontFileName);
     if (fs.existsSync(fontPath)) {
       const fontName = `NotoSans-${lang}`;
       doc.registerFont(fontName, fontPath);
       bodyFont = fontName;
-      fontRegistered = true;
     }
-    // If font file not found, fall back to Helvetica (Latin characters only)
-    // This is a graceful degradation — the PDF will still generate, just without
-    // proper script rendering. This should not happen in production.
+    // If font file not found, fall back to Helvetica (graceful degradation).
   }
 
   const chunks: Buffer[] = [];
