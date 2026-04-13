@@ -1496,8 +1496,10 @@ export default function Dashboard() {
 
       // Shared helper to call /api/gemma and handle fallback notifications
       // Includes _providerOverride from in-app Settings so judges can switch to Ollama
-      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
-        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+      const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
+      const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      const providerOverride = settings.providerMode === "ollama"
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
         ? { mode: "gemma" as const }
         : undefined;
@@ -1653,8 +1655,10 @@ export default function Dashboard() {
     setShowSampleHint(false);
     setSampleLoading(true);
     try {
-      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
-        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+      const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
+      const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      const providerOverride = settings.providerMode === "ollama"
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
         ? { mode: "gemma" as const }
         : undefined;
@@ -1728,8 +1732,10 @@ export default function Dashboard() {
     setVoiceLoading(true);
     toast("⏳ Transcript captured. Sending to AI for cleanup...", { duration: 5000, id: "voice-status" });
     try {
-      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
-        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+      const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
+      const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      const providerOverride = settings.providerMode === "ollama"
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
         ? { mode: "gemma" as const }
         : undefined;
@@ -2678,8 +2684,10 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
     setHandoffLoading(true);
     setHandoffReport(null);
     try {
-      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
-        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+      const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
+      const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      const providerOverride = settings.providerMode === "ollama"
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
         ? { mode: "gemma" as const }
         : undefined;
