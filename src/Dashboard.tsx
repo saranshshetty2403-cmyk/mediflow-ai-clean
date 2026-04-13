@@ -1878,7 +1878,7 @@ export default function Dashboard() {
       return;
     }
     setVoiceLoading(true);
-    toast("⏳ Transcript captured. Sending to AI for cleanup...", { duration: 5000, id: "voice-status" });
+    // No toast here — processing silently in the background
     try {
       const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
       const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
@@ -1946,17 +1946,14 @@ export default function Dashboard() {
       recognition.lang = "en-US";
 
       recognition.onstart = () => {
-        // Only show the toast on the first start, not on auto-restarts
-        if (!isRecording) {
-          toast("🎙️ Recording... speak now. Tap the mic again to stop.", { duration: 600000, id: "voice-recording" });
-        }
+        // Toast is shown once by the outer try block — nothing to do here on restarts
       };
 
       recognition.onresult = (event: any) => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             rawTranscriptRef.current += " " + event.results[i][0].transcript;
-            toast(`🎙️ Heard: "${event.results[i][0].transcript.slice(0, 60)}"`, { duration: 2000, id: "voice-live" });
+            // No toast here — do not interrupt the user while they are speaking
           }
         }
       };
@@ -2026,7 +2023,7 @@ export default function Dashboard() {
     // Mark as intentional stop so onend processes the transcript instead of restarting
     shouldStopRef.current = true;
     toast.dismiss("voice-recording");
-    toast("⏹️ Stopping... processing your note.", { duration: 3000, id: "voice-stopping" });
+    // No "Stopping..." toast — let onend handle the final state silently
     recognitionRef.current?.stop();
     // setIsRecording(false) will be called by onend
   };
