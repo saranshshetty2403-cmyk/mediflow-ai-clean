@@ -89,35 +89,48 @@ function buildDischargePrompt(literacyLevel: string, language = "en"): string {
   // The AI is told to write ALL text in the target language script.
   // Drug names, ICD-10 codes, and numbers are kept in English/Latin as standard practice.
   const languageInstruction = language !== "en"
-    ? `\n\n**CRITICAL LANGUAGE REQUIREMENT:** You MUST write the ENTIRE discharge note in ${lang.english} (${lang.native}) script. Every word of every section heading, every instruction, every warning, and every explanation must be in ${lang.english}. Do NOT write in English except for: drug/medication names, ICD-10 codes, and numeric values (doses, times, measurements). This document will be read by a patient who speaks ${lang.english}.`
+    ? `\n\n**CRITICAL LANGUAGE REQUIREMENT — READ BEFORE GENERATING:**
+You MUST write the ENTIRE discharge note in ${lang.english} (${lang.native}) script.
+- EVERY section heading, instruction, warning, explanation, and sentence MUST be in ${lang.english}.
+- Do NOT write in English except for: drug/medication names, ICD-10 codes, and numeric values.
+- Do NOT leave any placeholder text like [instruction], [red flag], [timeframe], or [plain language explanation]. Replace ALL placeholders with REAL, specific clinical content derived from the patient input.
+- Write actual sentences. Write actual medical instructions. Write actual warning signs.
+- The patient who will read this speaks ONLY ${lang.english}. English text will be incomprehensible to them.
+- FAILURE TO FOLLOW THIS INSTRUCTION MAKES THE DOCUMENT CLINICALLY USELESS.`
     : "";
 
-  return `${CLINICAL_PREAMBLE}${languageInstruction}
+  const structureNote = language !== "en"
+    ? `\n\nIMPORTANT: The section structure below is a GUIDE only. Write ALL content in ${lang.english} (${lang.native}). Replace every bracketed placeholder with real, specific content from the patient input. Do not copy the bracket text.`
+    : "";
+
+  return `${CLINICAL_PREAMBLE}${languageInstruction}${structureNote}
 
 Generate patient discharge instructions calibrated to a **${cfg.grade} reading level**.
 ${cfg.style}
 ${cfg.vocab}
 
+Use the following structure. Replace ALL bracketed placeholders with REAL content — never output literal bracket text:
+
 **Discharge Instructions**
 
-**Your Diagnosis:** [plain language explanation appropriate for ${cfg.grade} reading level]
+**Your Diagnosis:** [Write the actual diagnosis in plain language at ${cfg.grade} reading level — do NOT write this bracket text]
 
 **What to Do at Home:**
-1. [specific instruction — ${cfg.grade} language]
-2. [specific instruction]
-3. [specific instruction]
+1. [Write a specific, actionable home care instruction — do NOT write this bracket text]
+2. [Write a second specific instruction]
+3. [Write a third specific instruction]
 
 **Medications:**
-- [medication name]: [dose, how often, how long, and WHY in ${cfg.grade} language]
+- [Write each medication with dose, frequency, duration, and reason — do NOT write this bracket text]
 
 **Warning Signs — Go to the Emergency Room Immediately If:**
-- [red flag symptom in plain language]
-- [red flag symptom]
-- [red flag symptom]
+- [Write a specific red flag symptom — do NOT write this bracket text]
+- [Write a second red flag]
+- [Write a third red flag]
 
-**Follow-Up Appointment:** [timeframe and specialty in plain language]
+**Follow-Up Appointment:** [Write the specific timeframe and specialty — do NOT write this bracket text]
 
-**Questions?** Contact your care team at [placeholder number].`;
+**Questions?** Contact your care team at the number on your discharge paperwork.`;
 }
 
 const URGENCY_PROMPT = `${CLINICAL_PREAMBLE}
@@ -238,6 +251,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // MULTILINGUAL CLOUD FALLBACK:
+  // Small Ollama models (gemma2:2b, gemma3:4b) struggle with non-English output —
+  // they partially follow the language instruction but produce garbled or placeholder-filled text.
+  // When:
+  //   1. The request is for a non-English discharge note, AND
+  //   2. The active provider is Ollama (env-var routing), AND
+  //   3. The user has NOT explicitly set a provider override in Settings
+  // → automatically route to Google AI Studio (Gemma 4 31B) which handles all 8 Indian
+  //   languages reliably. The UI will show "switched from Ollama" in the provider badge.
+  let effectiveOverride = _providerOverride;
+  if (
+    module === "discharge" &&
+    language &&
+    language !== "en" &&
+    !_providerOverride &&
+    getProviderMode() === "ollama"
+  ) {
+    const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
+    if (apiKey) {
+      // Force cloud for multilingual discharge notes
+      effectiveOverride = { mode: "gemma" };
+    }
+    // If no API key is available, fall through to Ollama (best effort)
+  }
+
   try {
     // invokeAI automatically selects Ollama (local) or Google AI Studio (cloud)
     // based on the OLLAMA_URL environment variable. See api/ai-provider.ts.
@@ -246,7 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage: input,
       maxTokens: 4096,
       temperature: 0.3,
-      _providerOverride,
+      _providerOverride: effectiveOverride,
     });
 
     const confidence = Math.floor(Math.random() * 15) + 85;

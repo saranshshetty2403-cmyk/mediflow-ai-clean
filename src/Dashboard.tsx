@@ -1629,10 +1629,103 @@ export default function Dashboard() {
       // Use server-provided confidence or simulate
       const confidence = confidenceFromServer ?? Math.floor(82 + Math.random() * 15);
 
-      // Extract patient name from input if present (e.g. "Patient: John Doe, 45M")
-      const nameMatch = input.match(/[Pp]atient[:\s]+([A-Z][a-z]+(?: [A-Z][a-z]+)+)(?:,\s*(\d+[MF]))?/);
-      const extractedName = nameMatch ? nameMatch[1] : undefined;
-      const extractedAge = nameMatch ? nameMatch[2] : undefined;
+      // ── PATIENT NAME & AGE/SEX EXTRACTION ────────────────────────────────────
+      // Handles a wide variety of real-world clinical note formats:
+      //   "Patient: Ravi Kumar, 45M"         → name + age/sex together
+      //   "Patient: Ravi Kumar. Age: 45. M." → name + separate age/sex fields
+      //   "45M admitted for..."               → age/sex without explicit name
+      //   "patient ravi kumar 38 year old male" → loose prose format
+      //   "Name: Priya Sharma\nAge: 32F"      → structured field format
+      //   "PRIYA SHARMA, 32F"                 → all-caps name
+      //   "Pt: J. Mehta, 60 yr old male"      → abbreviated prefix
+      // ─────────────────────────────────────────────────────────────────────────
+
+      let extractedName: string | undefined;
+      let extractedAge: string | undefined;
+
+      // Helper: normalise age+sex into compact form e.g. "45M", "32F"
+      const normaliseAgeSex = (age: string, sex?: string): string => {
+        const a = age.trim();
+        if (!sex) return a; // already compact like "45M"
+        const s = sex.trim().toUpperCase();
+        const sexChar = s.startsWith("M") ? "M" : s.startsWith("F") ? "F" : "";
+        return sexChar ? `${a}${sexChar}` : a;
+      };
+
+      // Helper: title-case a name (handles all-caps, all-lower, mixed)
+      const toTitleCase = (s: string) =>
+        s.replace(/\b([A-Za-z])([A-Za-z]*)/g, (_, first, rest) => first.toUpperCase() + rest.toLowerCase());
+
+      // Pattern 1: "Patient[:][ ]Name[,][ ]45M" or "Patient[:][ ]Name[,][ ]45 M"
+      //   Also handles "Pt:", "Pt.", "patient name:"
+      //   Name stops at sentence-ending punctuation (. ! ?) or a newline
+      const p1 = input.match(
+        /(?:patient(?:\s+name)?|\bpt)\.?[:\s]+([A-Za-z][A-Za-z.'\-]*(?: [A-Za-z][A-Za-z.'\-]*)*)(?:[,\s]+)(\d{1,3})\s*([MFmf](?:\b|$))?/i
+      );
+      if (p1) {
+        // Strip any trailing punctuation that got captured
+        extractedName = toTitleCase(p1[1].replace(/[.!?]+$/, '').trim());
+        extractedAge = p1[3] ? normaliseAgeSex(p1[2], p1[3]) : p1[2];
+      }
+
+      // Pattern 2: "Patient: Name" (no age on same line)
+      //   Name stops at sentence-ending punctuation, comma, or newline
+      if (!extractedName) {
+        const p2 = input.match(
+          /(?:patient(?:\s+name)?|\bpt)\.?[:\s]+([A-Za-z][A-Za-z.'\-]*(?: [A-Za-z][A-Za-z.'\-]*)*)(?=[.,!?\n]|$)/i
+        );
+        if (p2) extractedName = toTitleCase(p2[1].trim());
+      }
+
+      // Pattern 3: "Name: Priya Sharma" structured field
+      if (!extractedName) {
+        const p3 = input.match(/\bname[:\s]+([A-Za-z][A-Za-z.'\-]+(?: [A-Za-z][A-Za-z.'\-]+)+)/i);
+        if (p3) extractedName = toTitleCase(p3[1].trim());
+      }
+
+      // Age/sex extraction — two-pass approach:
+      //   Pass 1: find the age number (and sex if immediately adjacent)
+      //   Pass 2: if sex not yet found, scan the whole input for any sex indicator
+      let rawAge: string | undefined;
+      let rawSex: string | undefined;
+
+      // Pass 1a — "45 yr old male", "45-year-old female", "45 y/o male" (age + sex in one phrase)
+      const pB = input.match(/\b(\d{1,3})[-\s]?(?:year(?:s)?[-\s]?old|yr(?:s)?[-\s]?old|yr|y\/o)[,\s]*(male|female|m|f)(?:\b|$)/i);
+      if (pB) { rawAge = pB[1]; rawSex = pB[2]; }
+
+      // Pass 1b — compact "45M", "32F" (letter immediately adjacent, no space)
+      if (!rawAge) {
+        const pA = input.match(/\b(\d{1,3})([MFmf])(?!\w)/);
+        if (pA) { rawAge = pA[1]; rawSex = pA[2]; }
+      }
+
+      // Pass 1c — "Age/Sex: 45M" or "Age: 45" structured field
+      if (!rawAge) {
+        const pC = input.match(/\bage(?:\/sex)?[:\s]+(\d{1,3})\s*([MFmf])?(?:\b|$)/i);
+        if (pC) { rawAge = pC[1]; if (pC[2]) rawSex = pC[2]; }
+      }
+
+      // Pass 1d — "Age: 45" without sex (plain number)
+      if (!rawAge) {
+        const pD = input.match(/\bage[:\s]+(\d{1,3})/i);
+        if (pD) rawAge = pD[1];
+      }
+
+      // Pass 2 — if we have an age but no sex yet, scan whole input for any sex indicator
+      if (rawAge && !rawSex) {
+        // "Sex: Male", "Gender: Female"
+        const sexField = input.match(/\b(?:sex|gender)[:\s]+(male|female|m|f)(?:\b|$)/i);
+        if (sexField) {
+          rawSex = sexField[1];
+        } else {
+          // Standalone "male" or "female" anywhere in text
+          const standaloneSex = input.match(/\b(male|female)\b/i);
+          if (standaloneSex) rawSex = standaloneSex[1];
+        }
+      }
+
+      if (rawAge) extractedAge = rawSex ? normaliseAgeSex(rawAge, rawSex) : rawAge;
+      // ─────────────────────────────────────────────────────────────────────────
 
       const newResult: AIResult = {
         id: `case-${Date.now().toString(36).toUpperCase()}`,
