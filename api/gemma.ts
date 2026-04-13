@@ -170,6 +170,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // ── OLLAMA INTEGRATION: Per-request provider override ─────────────────────
+  // _providerOverride is sent by the frontend (src/Dashboard.tsx) when the user
+  // has selected a provider in the Settings panel (src/SettingsDrawer.tsx).
+  // It takes precedence over the OLLAMA_URL environment variable inside invokeAI().
+  //
+  // Shape: { mode: "ollama", ollamaUrl: "http://...", ollamaModel: "gemma2:2b" }
+  //   or   { mode: "gemma" }  ← forces cloud inference regardless of env vars
+  //
+  // If _providerOverride is absent, invokeAI() falls back to env-var routing:
+  //   OLLAMA_URL set   → Ollama local inference (on-premise, ABDM-compliant)
+  //   OLLAMA_URL unset → Google AI Studio (Gemma 4 31B cloud)
+  // ───────────────────────────────────────────────────────────────────────────
   const { module, input, literacyLevel, _providerOverride } = req.body as { module: string; input: string; literacyLevel?: string; _providerOverride?: { mode: "ollama" | "gemma"; ollamaUrl?: string; ollamaModel?: string } };
 
   if (!module || !input) {

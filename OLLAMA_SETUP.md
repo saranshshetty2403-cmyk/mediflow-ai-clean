@@ -34,6 +34,33 @@ The affected endpoints are:
 
 ---
 
+## Option A: In-App Switching (Judges & Evaluators — No Setup Required)
+
+If you want to test Ollama inference on the **live deployed app** without installing anything, use the built-in provider switcher in the Settings panel:
+
+1. Open **[https://mediflow-ai-pi.vercel.app](https://mediflow-ai-pi.vercel.app)**
+2. Click **Settings** (gear icon, bottom-left sidebar)
+3. Scroll to **AI PROVIDER** at the bottom of the Settings page
+4. Click **Ollama**
+5. Leave both fields empty — the public test server is applied automatically
+   - Default URL: `http://5.149.249.212:11434`
+   - Default model: `gemma2:2b`
+6. Close Settings — the header badge changes to **OLLAMA — gemma2:2b** (amber)
+7. Run any text module to confirm Ollama is handling inference
+8. To switch back: open Settings → click **Gemma 4**
+
+You can also enter your own Ollama server URL and model name if you have a local instance running. The fields accept any OpenAI-compatible Ollama endpoint.
+
+> **Note:** Image modules (Prescription Scan, Image Extraction) always use Gemini vision and are not affected by this setting.
+
+---
+
+## Option B: Self-Hosted Deployment (Full Local Setup)
+
+The following guide explains how to run MediFlow AI entirely on your own hardware with a local Ollama server. This is the recommended configuration for hospitals with strict data-residency requirements.
+
+---
+
 ## Prerequisites
 
 | Requirement | Minimum | Recommended |

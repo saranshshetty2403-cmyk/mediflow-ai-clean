@@ -1494,10 +1494,23 @@ export default function Dashboard() {
       let riskScoreFromServer: number | undefined;
       let confidenceFromServer: number | undefined;
 
+      // ── OLLAMA INTEGRATION: Build per-request provider override ──────────────
+      // This object is sent in the request body to every AI API endpoint.
+      // The user's provider choice (Gemma 4 or Ollama) is stored in localStorage
+      // via useSettings.ts and read from the `settings` object here.
+      //
+      // If Ollama is selected and the URL/model fields are empty, the public
+      // test server defaults are used so judges can test without any setup.
+      //
+      // The override is consumed by invokeAI() in api/ai-provider.ts:
+      //   mode: "ollama" → callOllama(overrideUrl, overrideModel)
+      //   mode: "gemma"  → callGoogleAI() (forces cloud regardless of OLLAMA_URL)
+      //   undefined      → env-var routing (OLLAMA_URL or Google AI Studio)
+      // ───────────────────────────────────────────────────────────────────────────
       // Shared helper to call /api/gemma and handle fallback notifications
-      // Includes _providerOverride from in-app Settings so judges can switch to Ollama
       const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
       const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      // ── OLLAMA INTEGRATION: see callGemma block above for full docs ──
       const providerOverride = settings.providerMode === "ollama"
         ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
@@ -1657,6 +1670,7 @@ export default function Dashboard() {
     try {
       const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
       const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      // ── OLLAMA INTEGRATION: see callGemma block above for full docs ──
       const providerOverride = settings.providerMode === "ollama"
         ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
@@ -1734,6 +1748,7 @@ export default function Dashboard() {
     try {
       const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
       const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      // ── OLLAMA INTEGRATION: see callGemma block above for full docs ──
       const providerOverride = settings.providerMode === "ollama"
         ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"
@@ -2686,6 +2701,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
     try {
       const OLLAMA_DEFAULT_URL = "http://5.149.249.212:11434";
       const OLLAMA_DEFAULT_MODEL = "gemma2:2b";
+      // ── OLLAMA INTEGRATION: see callGemma block above for full docs ──
       const providerOverride = settings.providerMode === "ollama"
         ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl.trim() || OLLAMA_DEFAULT_URL, ollamaModel: settings.ollamaModel.trim() || OLLAMA_DEFAULT_MODEL }
         : settings.providerMode === "gemma"

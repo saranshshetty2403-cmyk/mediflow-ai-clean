@@ -353,6 +353,54 @@ See **[OLLAMA_SETUP.md](OLLAMA_SETUP.md)** for the complete setup guide includin
 | `gemma3:27b` | 16 GB | Slower (10–20s GPU) | Complex clinical notes |
 | CPU (any model) | 0 GB VRAM | Slow (15–60s) | Offline-only environments |
 
+### In-App Provider Switching (No Setup Required)
+
+MediFlow AI includes a built-in provider switcher in the **Settings** panel that allows anyone — including hackathon judges — to switch between Gemma 4 (cloud) and Ollama (local) **without touching environment variables, redeploying, or running any server commands**.
+
+**How to switch providers in the live app:**
+
+1. Open the live demo at **[https://mediflow-ai-pi.vercel.app](https://mediflow-ai-pi.vercel.app)**
+2. Click **Settings** (gear icon, bottom-left of the sidebar)
+3. Scroll to the **AI PROVIDER** section
+4. Click **Ollama** to switch from Gemma 4 to Ollama
+5. Leave both fields empty to use the public test server automatically (`http://5.149.249.212:11434`, model: `gemma2:2b`)
+6. Close Settings — the header badge will immediately show **OLLAMA — gemma2:2b** in amber
+7. Run any text module — inference now routes to the Ollama server
+8. To switch back, open Settings and click **Gemma 4**
+
+> **Quick start for judges:** Select Ollama and leave both fields empty. The public test server and model are applied automatically as defaults.
+
+**How the in-app switching works technically:**
+
+The Settings panel stores the provider choice in `localStorage` via `src/useSettings.ts`. When a module runs, `src/Dashboard.tsx` reads the current settings and builds a `_providerOverride` object:
+
+```typescript
+// Dashboard.tsx — built before every API call
+const providerOverride = {
+  mode: settings.providerMode,                                    // "ollama" or "gemma"
+  ollamaUrl: settings.ollamaUrl || "http://5.149.249.212:11434", // fallback to public server
+  ollamaModel: settings.ollamaModel || "gemma2:2b",              // fallback to default model
+};
+```
+
+This object is sent in the request body to the API endpoint (e.g. `api/gemma.ts`), which extracts it and passes it to `invokeAI()`. Inside `invokeAI()`, the override takes precedence over all environment variables:
+
+```typescript
+// api/ai-provider.ts — invokeAI() entry point
+const override = req._providerOverride;
+if (override?.mode === "ollama" && override.ollamaUrl) {
+  return callOllama(req, override.ollamaUrl, override.ollamaModel); // routes to Ollama
+}
+if (override?.mode === "gemma") {
+  return callGoogleAI(req, apiKey); // forces Gemma 4 cloud
+}
+// Falls through to env-var-based routing if no override
+```
+
+The header badge in the dashboard reads `result.provider` from the API response to confirm which backend actually handled the request.
+
+> **Note:** Image-based modules (Prescription Scan, Image Extraction) always use Gemini vision regardless of the provider setting, as Ollama vision requires a separately configured vision model.
+
 ### Verifying Ollama Is Active
 
 Every API response includes a `provider` field:

@@ -8,6 +8,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  # ── OLLAMA INTEGRATION: Per-request provider override ─────────────────────
+  # _providerOverride is injected by src/Dashboard.tsx from the user's Settings
+  # panel choice (src/SettingsDrawer.tsx). It overrides OLLAMA_URL env var.
+  # { mode: "ollama", ollamaUrl: "...", ollamaModel: "..." }  → Ollama path
+  # { mode: "gemma" }                                          → Gemma 4 cloud
+  # undefined                                                   → env-var routing
+  # ───────────────────────────────────────────────────────────────────────────
   const { caseSummaries, totalActive, _providerOverride } = req.body as {
     caseSummaries: string;
     totalActive: number;

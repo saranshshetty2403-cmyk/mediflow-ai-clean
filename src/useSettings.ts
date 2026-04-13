@@ -21,7 +21,19 @@ export interface AppSettings {
   defaultView: DefaultView;
   denseMode: boolean;
   soundEnabled: boolean;
-  // AI Provider — judges and users can switch without touching env vars
+  // ── OLLAMA INTEGRATION: In-app provider settings ────────────────────────────
+  // These three fields are persisted to localStorage (key: "mediflow_settings").
+  // They are read by src/Dashboard.tsx before every AI API call to build the
+  // _providerOverride object that is sent in the request body to api/ai-provider.ts.
+  //
+  // providerMode: "gemma" (default) | "ollama"
+  // ollamaUrl:    URL of the Ollama server (empty = use public test server default)
+  // ollamaModel:  Model name to use (empty = use "gemma2:2b" default)
+  //
+  // The Settings panel (src/SettingsDrawer.tsx) provides the UI for changing these.
+  // Changes take effect immediately on the next module run — no page reload needed.
+  // Default is dark mode + Gemma 4 cloud on first visit.
+  // ─────────────────────────────────────────────────────────────────────────────
   providerMode: ProviderMode;
   ollamaUrl: string;
   ollamaModel: string;

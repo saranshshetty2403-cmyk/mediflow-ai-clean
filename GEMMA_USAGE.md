@@ -422,6 +422,35 @@ This enables healthcare organisations to run MediFlow AI entirely on-premise, wi
 
 See [OLLAMA_SETUP.md](OLLAMA_SETUP.md) for the complete setup guide.
 
+### In-App Provider Override (Per-Request Switching)
+
+Beyond environment-variable-based routing, MediFlow AI implements a **per-request provider override** that allows users to switch between Gemma 4 and Ollama from the Settings panel in the UI — no server configuration or redeployment required.
+
+The `_providerOverride` field in `AIRequest` carries the user's choice from the frontend:
+
+```typescript
+// api/ai-provider.ts — invokeAI() entry point
+export async function invokeAI(req: AIRequest): Promise<AIResponse> {
+  // Per-request override from in-app Settings takes precedence over env vars.
+  // This allows judges and users to switch providers without touching env vars.
+  const override = req._providerOverride;
+  if (override?.mode === "ollama" && override.ollamaUrl) {
+    // Routes to the Ollama URL specified in Settings (or public test server if empty)
+    return callOllama(req, override.ollamaUrl, override.ollamaModel);
+  }
+  if (override?.mode === "gemma") {
+    // Forces Gemma 4 cloud inference regardless of OLLAMA_URL env var
+    return callGoogleAI(req, apiKey);
+  }
+  // No override — falls through to environment variable routing
+  ...
+}
+```
+
+Every API endpoint (`api/gemma.ts`, `api/clean-transcript.ts`, `api/generate-handoff.ts`, `api/generate-sample.ts`, `api/scan-prescription.ts`) extracts `_providerOverride` from the request body and passes it to `invokeAI()`. The frontend (`src/Dashboard.tsx`) builds the override object from `localStorage`-persisted settings before each call.
+
+**To test Ollama on the live app:** Open Settings → select Ollama → leave fields empty (defaults to `http://5.149.249.212:11434`, model `gemma2:2b`) → run any text module. The header badge confirms the active provider.
+
 ---
 
 ## Prompt Engineering Principles
