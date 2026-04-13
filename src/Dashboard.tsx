@@ -984,7 +984,7 @@ function QueueItem({ item, onExpand, onDelete, onEdit, onDownloadPdf, onStatusCh
           {onDownloadPdf && (
             <button
               onClick={(e) => { e.stopPropagation(); onDownloadPdf(item); }}
-              className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-900/20 px-2 py-1 rounded transition-colors border border-teal-800/40"
+              className="relative flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border-2 transition-all bg-[#0D7377]/20 border-[#0D7377] text-teal-300 hover:bg-[#0D7377]/30"
               title="Download PDF"
             >
               <Download className="w-3 h-3" /> PDF
@@ -3344,9 +3344,12 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                             <Inbox className="w-3.5 h-3.5" /> Add to Queue
                           </Button>
                         )}
-                        <Button onClick={handleMedScanDownloadPdf} className="bg-[#0D7377] hover:bg-[#0a5f63] text-white gap-2 text-xs h-8 px-3">
+                        <button
+                          onClick={handleMedScanDownloadPdf}
+                          className="relative flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-2 transition-all bg-[#0D7377]/20 border-[#0D7377] text-teal-300 hover:bg-[#0D7377]/30"
+                        >
                           <Download className="w-3.5 h-3.5" /> Download PDF
-                        </Button>
+                        </button>
                       </div>
                     </div>
                     {/* Meta info */}
@@ -3747,8 +3750,16 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <button onClick={handlePrint} className="text-xs text-[#8892a4] hover:text-white flex items-center gap-1" title="Print">
                         <Printer className="w-3 h-3" />
                       </button>
-                      <button onClick={handleExport} className="text-xs text-[#8892a4] hover:text-white flex items-center gap-1" title="Export as .txt">
-                        <Download className="w-3 h-3" />
+                      <button
+                        onClick={handleExport}
+                        className={`relative flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-2 transition-all ${
+                          isDark
+                            ? "bg-[#0D7377]/20 border-[#0D7377] text-teal-300 hover:bg-[#0D7377]/30"
+                            : "bg-[#0D7377]/10 border-[#0D7377] text-[#0D7377] hover:bg-[#0D7377]/20"
+                        }`}
+                        title="Download PDF"
+                      >
+                        <Download className="w-3 h-3" /> Download PDF
                       </button>
                     </div>
                   )}
