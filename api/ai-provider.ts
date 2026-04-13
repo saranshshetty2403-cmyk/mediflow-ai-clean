@@ -1,5 +1,10 @@
+// Vercel compiles each api/*.ts file independently with moduleResolution: node16.
+// This declaration makes `process.env` available without requiring @types/node
+// in the project-level tsconfig, which would break the frontend build.
+declare const process: { env: Record<string, string | undefined> };
+
 /**
- * _ai-provider.ts — MediFlow AI
+ * ai-provider.ts — MediFlow AI
  * ─────────────────────────────────────────────────────────────────────────────
  * Centralised AI inference helper that supports two provider modes:
  *
