@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { caseSummaries, totalActive } = req.body as {
+  const { caseSummaries, totalActive, _providerOverride } = req.body as {
     caseSummaries: string;
     totalActive: number;
   };
@@ -28,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage: userPrompt,
       maxTokens: 1024,
       temperature: 0.3,
+      _providerOverride,
     });
 
     return res.status(200).json({

@@ -56,6 +56,16 @@ export interface AIRequest {
   maxTokens?: number;
   /** Temperature 0–1 (default: 0.3 for clinical consistency) */
   temperature?: number;
+  /**
+   * Per-request provider override from the in-app Settings panel.
+   * When set, this takes precedence over the OLLAMA_URL environment variable.
+   * Allows judges and users to switch providers without touching env vars.
+   */
+  _providerOverride?: {
+    mode: "ollama" | "gemma";
+    ollamaUrl?: string;
+    ollamaModel?: string;
+  };
 }
 
 export interface AIResponse {
@@ -85,9 +95,9 @@ export function getProviderMode(): "ollama" | "google" {
  *
  * @see https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
  */
-async function callOllama(req: AIRequest): Promise<AIResponse> {
-  const ollamaUrl = process.env.OLLAMA_URL!; // guaranteed non-null (checked by caller)
-  const model = process.env.OLLAMA_MODEL || "gemma3:4b";
+async function callOllama(req: AIRequest, overrideUrl?: string, overrideModel?: string): Promise<AIResponse> {
+  const ollamaUrl = overrideUrl || process.env.OLLAMA_URL!; // per-request override takes precedence
+  const model = overrideModel || process.env.OLLAMA_MODEL || "gemma3:4b";
   const maxTokens = req.maxTokens ?? 4096;
   const temperature = req.temperature ?? 0.3;
 
@@ -282,10 +292,26 @@ function stripThoughtTags(text: string): string {
  * ```
  */
 export async function invokeAI(req: AIRequest): Promise<AIResponse> {
+  // Per-request override from in-app Settings takes precedence over env vars.
+  // This allows judges and users to switch providers without touching env vars.
+  const override = req._providerOverride;
+
+  if (override?.mode === "ollama" && override.ollamaUrl) {
+    // ── IN-APP SETTINGS: OLLAMA PATH ───────────────────────────────────────
+    return callOllama(req, override.ollamaUrl, override.ollamaModel);
+  }
+
+  if (override?.mode === "gemma") {
+    // ── IN-APP SETTINGS: FORCE GEMMA CLOUD ────────────────────────────────
+    const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
+    if (!apiKey) throw new Error("GOOGLE_AI_STUDIO_API_KEY is not set.");
+    return callGoogleAI(req, apiKey);
+  }
+
+  // ── ENVIRONMENT VARIABLE FALLBACK (original behaviour) ────────────────
   const mode = getProviderMode();
 
   if (mode === "ollama") {
-    // ── OLLAMA PATH ────────────────────────────────────────────────────────
     // All inference stays on the local server. No data sent to Google.
     // Ideal for hospitals with ABDM data-residency requirements.
     return callOllama(req);

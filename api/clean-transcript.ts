@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { rawTranscript, module } = req.body as {
+  const { rawTranscript, module, _providerOverride } = req.body as {
     rawTranscript: string;
     module: string;
   };
@@ -114,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage: `RAW TRANSCRIPT:\n${rawTranscript}`,
       maxTokens: 1024,
       temperature: 0.2,
+      _providerOverride,
     });
 
     return res.status(200).json({

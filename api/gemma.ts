@@ -170,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { module, input, literacyLevel } = req.body as { module: string; input: string; literacyLevel?: string };
+  const { module, input, literacyLevel, _providerOverride } = req.body as { module: string; input: string; literacyLevel?: string; _providerOverride?: { mode: "ollama" | "gemma"; ollamaUrl?: string; ollamaModel?: string } };
 
   if (!module || !input) {
     return res.status(400).json({ error: "Missing module or input" });
@@ -195,6 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage: input,
       maxTokens: 4096,
       temperature: 0.3,
+      _providerOverride,
     });
 
     const confidence = Math.floor(Math.random() * 15) + 85;

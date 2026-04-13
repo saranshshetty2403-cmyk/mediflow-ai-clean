@@ -3,8 +3,8 @@
  * Slide-in settings panel matching the Dark Biopunk Glass design language.
  */
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sun, Moon, Monitor, Volume2, VolumeX, AlignLeft, AlignRight, Layers, LayoutDashboard, ListOrdered, BarChart3, Zap, Type } from "lucide-react";
-import type { AppSettings, AccentColour, Theme, FontSize, SidebarPosition, DefaultView } from "./useSettings";
+import { X, Sun, Moon, Monitor, Volume2, VolumeX, AlignLeft, AlignRight, Layers, LayoutDashboard, ListOrdered, BarChart3, Zap, Type, Cpu, Cloud, Info } from "lucide-react";
+import type { AppSettings, AccentColour, Theme, FontSize, SidebarPosition, DefaultView, ProviderMode } from "./useSettings";
 import { ACCENT_COLOURS } from "./useSettings";
 
 interface Props {
@@ -243,6 +243,58 @@ export default function SettingsDrawer({ open, onClose, settings, onUpdate }: Pr
                   />
                 </div>
               </SettingRow>
+
+              {/* ── AI PROVIDER ── */}
+              <SectionLabel>AI Provider</SectionLabel>
+
+              {/* Provider Mode Toggle */}
+              <SettingRow label="Inference Engine" description="Switch between Gemma cloud and local Ollama">
+                <SegmentedControl<ProviderMode>
+                  value={settings.providerMode}
+                  onChange={(v) => onUpdate("providerMode", v)}
+                  options={[
+                    { value: "gemma",  label: "Gemma 4", icon: <Cloud className="w-3.5 h-3.5" /> },
+                    { value: "ollama", label: "Ollama",  icon: <Cpu   className="w-3.5 h-3.5" /> },
+                  ]}
+                />
+              </SettingRow>
+
+              {/* Ollama-specific fields — shown only when Ollama is selected */}
+              {settings.providerMode === "ollama" && (
+                <>
+                  <SettingRow label="Ollama Server URL" description="Base URL of your Ollama instance">
+                    <input
+                      type="text"
+                      value={settings.ollamaUrl}
+                      onChange={(e) => onUpdate("ollamaUrl", e.target.value)}
+                      placeholder="http://localhost:11434"
+                      className="w-[200px] px-2.5 py-1.5 rounded-md text-[12px] font-mono bg-white/[0.06] border border-white/[0.12] text-white/80 placeholder-[#8892a4] focus:outline-none focus:border-[--accent-primary]/50 focus:bg-white/[0.08] transition-all"
+                    />
+                  </SettingRow>
+
+                  <SettingRow label="Ollama Model" description="Model tag to use (must be pulled on the server)">
+                    <input
+                      type="text"
+                      value={settings.ollamaModel}
+                      onChange={(e) => onUpdate("ollamaModel", e.target.value)}
+                      placeholder="gemma3:4b"
+                      className="w-[200px] px-2.5 py-1.5 rounded-md text-[12px] font-mono bg-white/[0.06] border border-white/[0.12] text-white/80 placeholder-[#8892a4] focus:outline-none focus:border-[--accent-primary]/50 focus:bg-white/[0.08] transition-all"
+                    />
+                  </SettingRow>
+
+                  {/* Public test server hint for hackathon judges */}
+                  <div className="flex gap-2 mt-2 mb-1 p-3 rounded-lg bg-amber-500/[0.08] border border-amber-500/[0.18] text-[11px] text-amber-300/80 leading-relaxed">
+                    <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400" />
+                    <div>
+                      <span className="font-semibold text-amber-300">Hackathon judges:</span> Use the public test server at{" "}
+                      <code className="font-mono text-amber-200 bg-amber-500/10 px-1 rounded">http://5.149.249.212:11434</code>{" "}
+                      with model{" "}
+                      <code className="font-mono text-amber-200 bg-amber-500/10 px-1 rounded">gemma2:2b</code>.
+                      {" "}Image-based modules (Prescription Scan, Image Extraction) always use Gemini vision regardless of this setting.
+                    </div>
+                  </div>
+                </>
+              )}
 
             </div>
 

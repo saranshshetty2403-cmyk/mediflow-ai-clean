@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { extractedText } = req.body as { extractedText?: string };
+  const { extractedText, _providerOverride } = req.body as { extractedText?: string; _providerOverride?: { mode: "ollama" | "gemma"; ollamaUrl?: string; ollamaModel?: string } };
   if (!extractedText) return res.status(400).json({ error: "extractedText is required" });
 
   try {
@@ -62,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage:  `RAW PRESCRIPTION TEXT:\n\n${extractedText}`,
       maxTokens:    4096,
       temperature:  0,
+      _providerOverride,
     });
 
     return res.status(200).json({

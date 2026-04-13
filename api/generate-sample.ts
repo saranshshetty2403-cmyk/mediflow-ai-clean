@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { module, previousSample, existingNames } = req.body as {
+  const { module, previousSample, existingNames, _providerOverride } = req.body as {
     module: string;
     previousSample?: string;
     existingNames?: string[];
@@ -69,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userMessage: userPrompt,
       maxTokens: 800,
       temperature: 0.9, // Higher temperature for varied sample generation
+      _providerOverride,
     });
 
     return res.status(200).json({

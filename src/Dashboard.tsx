@@ -1489,11 +1489,17 @@ export default function Dashboard() {
       let confidenceFromServer: number | undefined;
 
       // Shared helper to call /api/gemma and handle fallback notifications
+      // Includes _providerOverride from in-app Settings so judges can switch to Ollama
+      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+        : settings.providerMode === "gemma"
+        ? { mode: "gemma" as const }
+        : undefined;
       const callGemma = async (body: Record<string, unknown>) => {
         const apiRes = await fetch("/api/gemma", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, _providerOverride: providerOverride }),
         });
         if (!apiRes.ok) {
           if (apiRes.status === 429) {
@@ -1641,6 +1647,11 @@ export default function Dashboard() {
     setShowSampleHint(false);
     setSampleLoading(true);
     try {
+      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+        : settings.providerMode === "gemma"
+        ? { mode: "gemma" as const }
+        : undefined;
       // Collect all patient names already in the queue so the AI avoids repeating them
       const existingNames = queue
         .map((q) => q.patientName)
@@ -1649,7 +1660,7 @@ export default function Dashboard() {
       const sampleApiRes = await fetch("/api/generate-sample", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module: activeModule, previousSample: input || undefined, existingNames }),
+        body: JSON.stringify({ module: activeModule, previousSample: input || undefined, existingNames, _providerOverride: providerOverride }),
       });
       if (!sampleApiRes.ok) throw new Error("API error");
       const res = await sampleApiRes.json() as { sample: string };
@@ -1711,10 +1722,15 @@ export default function Dashboard() {
     setVoiceLoading(true);
     toast("⏳ Transcript captured. Sending to AI for cleanup...", { duration: 5000, id: "voice-status" });
     try {
+      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+        : settings.providerMode === "gemma"
+        ? { mode: "gemma" as const }
+        : undefined;
       const res = await fetch("/api/clean-transcript", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawTranscript: raw, module: activeModule }),
+        body: JSON.stringify({ rawTranscript: raw, module: activeModule, _providerOverride: providerOverride }),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "Unknown error");
@@ -2656,6 +2672,11 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
     setHandoffLoading(true);
     setHandoffReport(null);
     try {
+      const providerOverride = settings.providerMode === "ollama" && settings.ollamaUrl
+        ? { mode: "ollama" as const, ollamaUrl: settings.ollamaUrl, ollamaModel: settings.ollamaModel || "gemma3:4b" }
+        : settings.providerMode === "gemma"
+        ? { mode: "gemma" as const }
+        : undefined;
       const activeCases = queue.filter(q => (q.status ?? 'pending') !== 'resolved');
       const caseSummaries = activeCases.slice(0, 30).map((c, i) => {
         const moduleLabel = navItems.find(n => n.id === c.type)?.label ?? c.type;
@@ -2668,7 +2689,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       const res = await fetch('/api/generate-handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseSummaries, totalActive: activeCases.length }),
+        body: JSON.stringify({ caseSummaries, totalActive: activeCases.length, _providerOverride: providerOverride }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({})) as { error?: string };
@@ -2872,11 +2893,11 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                 {MODULE_DESCRIPTIONS[activeModule].time}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-xs font-mono" title={aiProvider?.provider === 'ollama' ? `Local Ollama — ${aiProvider.model}` : 'Google AI — Gemma 4 31B'}>
-              <div className={`w-2 h-2 rounded-full ai-active-dot ${aiProvider?.provider === 'ollama' ? 'bg-amber-400' : 'bg-[var(--accent-primary)]'}`} />
-              <span className={aiProvider?.provider === 'ollama' ? 'text-amber-400/80' : 'text-[var(--accent-primary)]/70'}>
-                {aiProvider?.provider === 'ollama'
-                  ? `OLLAMA — ${aiProvider.model}`
+            <div className="flex items-center gap-1.5 text-xs font-mono" title={settings.providerMode === 'ollama' ? `Local Ollama — ${settings.ollamaModel || 'gemma3:4b'} (${settings.ollamaUrl || 'localhost:11434'})` : 'Google AI — Gemma 4 31B'}>
+              <div className={`w-2 h-2 rounded-full ai-active-dot ${settings.providerMode === 'ollama' ? 'bg-amber-400' : 'bg-[var(--accent-primary)]'}`} />
+              <span className={settings.providerMode === 'ollama' ? 'text-amber-400/80' : 'text-[var(--accent-primary)]/70'}>
+                {settings.providerMode === 'ollama'
+                  ? `OLLAMA — ${settings.ollamaModel || 'gemma3:4b'}`
                   : 'GEMMA 4 ACTIVE'}
               </span>
             </div>

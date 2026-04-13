@@ -11,6 +11,7 @@ export type AccentColour = "cyan" | "violet" | "emerald" | "amber" | "rose";
 export type FontSize = "compact" | "default" | "comfortable";
 export type SidebarPosition = "left" | "right";
 export type DefaultView = "automation" | "queue" | "metrics";
+export type ProviderMode = "gemma" | "ollama";
 
 export interface AppSettings {
   theme: Theme;
@@ -20,6 +21,10 @@ export interface AppSettings {
   defaultView: DefaultView;
   denseMode: boolean;
   soundEnabled: boolean;
+  // AI Provider — judges and users can switch without touching env vars
+  providerMode: ProviderMode;
+  ollamaUrl: string;
+  ollamaModel: string;
 }
 
 const STORAGE_KEY = "mediflow_settings";
@@ -32,6 +37,9 @@ const DEFAULTS: AppSettings = {
   defaultView: "automation",
   denseMode: false,
   soundEnabled: false,
+  providerMode: "gemma",
+  ollamaUrl: "",
+  ollamaModel: "gemma3:4b",
 };
 
 // Accent colour CSS values
