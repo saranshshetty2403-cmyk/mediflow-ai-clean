@@ -23,6 +23,9 @@
     "api/generate-sample.ts": {
       "maxDuration": 50
     },
+    "api/generate-handoff.ts": {
+      "maxDuration": 50
+    },
     "api/generate-discharge-pdf.ts": {
       "maxDuration": 50
     },
