@@ -2798,7 +2798,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
         fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
         w-64 flex-shrink-0 flex flex-col
         transform transition-transform duration-200 ease-in-out
-        bg-[#0a0f1e] border-r border-[var(--accent-muted)]
+        ${isDark ? "bg-[#0a0f1e]" : "bg-white"} border-r border-[var(--accent-muted)]
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
         <div className="px-5 py-5 border-b border-[var(--accent-muted)]">
@@ -2871,7 +2871,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       {/* Main Content */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden pb-16 lg:pb-0 bg-[#020817]">
         {/* Top Bar */}
-        <header className="flex-shrink-0 border-b border-[var(--accent-muted)] px-4 sm:px-6 py-4 flex items-center justify-between bg-[#0a0f1e]">
+        <header className={`flex-shrink-0 border-b border-[var(--accent-muted)] px-4 sm:px-6 py-4 flex items-center justify-between ${isDark ? "bg-[#0a0f1e]" : "bg-white"}`}>
           <div className="flex items-center gap-3">
             {/* Hamburger for mobile */}
             <button
@@ -2903,13 +2903,13 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
           </div>
           <div className="flex items-center gap-3">
             {activeView === "automation" && (
-              <span className="text-xs hidden sm:flex items-center gap-1 font-mono px-2 py-0.5 rounded text-[#8892a4] bg-white/[0.03] border border-white/[0.06]">
+              <span className={`text-xs hidden sm:flex items-center gap-1 font-mono px-2 py-0.5 rounded ${isDark ? "text-[#8892a4] bg-white/[0.03] border border-white/[0.06]" : "text-slate-500 bg-slate-100 border border-slate-200"}`}>
                 {MODULE_DESCRIPTIONS[activeModule].time}
               </span>
             )}
             <div className="flex items-center gap-1.5 text-xs font-mono" title={settings.providerMode === 'ollama' ? `Local Ollama — ${settings.ollamaModel || 'gemma3:4b'} (${settings.ollamaUrl || 'localhost:11434'})` : 'Google AI — Gemma 4 31B'}>
               <div className={`w-2 h-2 rounded-full ai-active-dot ${settings.providerMode === 'ollama' ? 'bg-amber-400' : 'bg-[var(--accent-primary)]'}`} />
-              <span className={settings.providerMode === 'ollama' ? 'text-amber-400/80' : 'text-[var(--accent-primary)]/70'}>
+              <span className={settings.providerMode === 'ollama' ? (isDark ? 'text-amber-400/80' : 'text-amber-700') : (isDark ? 'text-[var(--accent-primary)]/70' : 'text-[#0D7377]')}>
                 {settings.providerMode === 'ollama'
                   ? `OLLAMA — ${settings.ollamaModel || 'gemma3:4b'}`
                   : 'GEMMA 4 ACTIVE'}
@@ -2934,7 +2934,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                 <button onClick={() => setExpandedQueueItem(null)} className="flex items-center gap-1 text-sm text-[var(--accent-primary)] hover:text-white font-medium font-mono">
                   ← Back to Queue
                 </button>
-                <div className="rounded-xl border border-[var(--accent-muted)] bg-[#0d1424] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                <div className={`rounded-xl border border-[var(--accent-muted)] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${isDark ? "bg-[#0d1424]" : "bg-white"}`}>
                   <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[var(--accent-muted)]">
                     <Brain className="w-4 h-4 text-[var(--accent-primary)]" />
                     <span className="text-xs font-semibold text-[var(--accent-primary)] font-mono tracking-widest">AI OUTPUT</span>
@@ -2948,7 +2948,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <ConfidenceBar confidence={expandedQueueItem.confidence} />
                     </div>
                   )}
-                  <div className="text-sm leading-relaxed text-[#e8f4f8] prose-neo max-w-none">
+                  <div className={`text-sm leading-relaxed prose-neo max-w-none ${isDark ? "text-[#e8f4f8]" : "text-slate-800"}`}>
                     <SimpleMarkdown>{expandedQueueItem.content}</SimpleMarkdown>
                   </div>
                   {expandedQueueItem.notes && expandedQueueItem.notes.trim() && (
@@ -2999,7 +2999,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueFilter}
                         onChange={(e) => setQueueFilter(e.target.value)}
-                        className="text-xs border rounded-md px-2 py-1 bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)] focus:border-[var(--accent-glow)] focus:outline-none"
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
                       >
                         <option value="all">All Modules</option>
                         <option value="critical">Critical / High</option>
@@ -3016,7 +3016,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueNameFilter}
                         onChange={(e) => setQueueNameFilter(e.target.value)}
-                        className="text-xs border rounded-md px-2 py-1 bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)] max-w-[140px] focus:border-[var(--accent-glow)] focus:outline-none"
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}` max-w-[140px]
                       >
                         <option value="all">All Patients</option>
                         {Array.from(new Set(queue.map(q => q.patientName).filter(Boolean))).sort().map(name => (
@@ -3029,7 +3029,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueStatusFilter}
                         onChange={(e) => setQueueStatusFilter(e.target.value)}
-                        className="text-xs border rounded-md px-2 py-1 bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)] focus:border-[var(--accent-glow)] focus:outline-none"
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
                       >
                         <option value="all">Active (excl. Resolved)</option>
                         <option value="pending">Pending Review</option>
@@ -3042,7 +3042,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueSort}
                         onChange={(e) => setQueueSort(e.target.value as typeof queueSort)}
-                        className="text-xs border rounded-md px-2 py-1 bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)] focus:border-[var(--accent-glow)] focus:outline-none"
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
                       >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
@@ -3237,7 +3237,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       </div>
                     )}
                     {/* Medications table */}
-                    <div className="rounded-xl border border-[var(--accent-muted)] bg-[#0d1424] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                    <div className={`rounded-xl border border-[var(--accent-muted)] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${isDark ? "bg-[#0d1424]" : "bg-white"}`}>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -3251,11 +3251,11 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                             {medScanResult.medications.map((med, i) => (
                               <tr key={i} className={`border-b border-[rgba(255,255,255,0.04)] transition-colors hover:bg-[var(--accent-muted)] ${i % 2 === 0 ? "" : "bg-[rgba(255,255,255,0.01)]"}`}>
                                 <td className="px-3 py-2.5 font-medium text-white whitespace-nowrap">{med.name || "—"}</td>
-                                <td className="px-3 py-2.5 text-[#e8f4f8]/70 whitespace-nowrap font-mono text-xs">{med.strength || "—"}</td>
-                                <td className="px-3 py-2.5 text-[#e8f4f8]/70 whitespace-nowrap font-mono text-xs">{med.form || "—"}</td>
-                                <td className="px-3 py-2.5 text-[#e8f4f8]/70 whitespace-nowrap font-mono text-xs">{med.frequency || "—"}</td>
-                                <td className="px-3 py-2.5 text-[#e8f4f8]/70 whitespace-nowrap font-mono text-xs">{med.duration || "—"}</td>
-                                <td className="px-3 py-2.5 text-[#e8f4f8]/70 whitespace-nowrap font-mono text-xs">{med.route || "—"}</td>
+                                <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.strength || "—"}</td>
+                                <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.form || "—"}</td>
+                                <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.frequency || "—"}</td>
+                                <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.duration || "—"}</td>
+                                <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.route || "—"}</td>
                                 <td className="px-3 py-2.5 text-[#8892a4] max-w-[200px] text-xs">{med.instructions || "—"}</td>
                               </tr>
                             ))}
@@ -3310,7 +3310,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     )}
 
                     {/* Editable extracted text */}
-                    <div className="rounded-xl border border-[var(--accent-muted)] bg-[#0d1424] p-4">
+                    <div className={`rounded-xl border border-[var(--accent-muted)] p-4 ${isDark ? "bg-[#0d1424]" : "bg-white"}`}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Pencil className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
@@ -3322,7 +3322,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                         value={editedMedText}
                         onChange={(e) => setEditedMedText(e.target.value)}
                         rows={10}
-                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg p-3 text-xs text-[#e8f4f8] font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                        className={`w-full rounded-lg p-3 text-xs font-mono leading-relaxed resize-y focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all ${isDark ? "bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] text-[#e8f4f8]" : "bg-white border border-slate-300 text-slate-900"}`}
                         placeholder="Extracted prescription text will appear here for editing..."
                         spellCheck={false}
                       />
@@ -3331,8 +3331,8 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
 
                     {medScanResult.pharmacistNotes && (
                       <div className="rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
-                        <p className="text-xs font-semibold text-amber-300 mb-1">Pharmacist Notes</p>
-                        <p className="text-xs text-amber-400/80">{medScanResult.pharmacistNotes}</p>
+                        <p className={`text-xs font-semibold mb-1 ${isDark ? "text-amber-300" : "text-amber-700"}`}>Pharmacist Notes</p>
+                        <p className={`text-xs ${isDark ? "text-amber-400/80" : "text-amber-800"}`}>{medScanResult.pharmacistNotes}</p>
                       </div>
                     )}
                     <div className="flex items-start gap-2 px-1">
@@ -3393,7 +3393,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       ) : (
                         <>
                           <Zap className="w-3 h-3" /> Load Demo Case
-                          <span className="ml-1 text-[10px] font-normal opacity-60 bg-teal-900/40 px-1 py-0.5 rounded">DEMO</span>
+                          <span className={`ml-1 text-[10px] font-normal px-1 py-0.5 rounded ${isDark ? "opacity-60 bg-teal-900/40 text-teal-200" : "bg-teal-100 text-teal-700 opacity-100"}`}>DEMO</span>
                         </>
                       )}
                     </button>
@@ -3480,10 +3480,10 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border bg-[rgba(245,166,35,0.08)] border-[rgba(245,166,35,0.25)]"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold mb-0.5 text-amber-300 font-mono">
+                      <p className={`text-xs font-semibold mb-0.5 font-mono ${isDark ? "text-amber-300" : "text-amber-700"}`}>
                         Not sure where to start?
                       </p>
-                      <p className="text-xs leading-relaxed text-amber-400/80">
+                      <p className={`text-xs leading-relaxed ${isDark ? "text-amber-400/80" : "text-amber-800"}`}>
                         <>Click <strong>"Load Demo Case"</strong> above — Gemma AI will generate a realistic {{
                           intake: "patient intake note",
                           triage: "patient complaint message",
@@ -3495,7 +3495,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     </div>
                     <button
                       onClick={() => setShowSampleHint(false)}
-                      className="text-xs text-amber-500 hover:text-amber-300 flex-shrink-0"
+                      className={`text-xs flex-shrink-0 ${isDark ? "text-amber-500 hover:text-amber-300" : "text-amber-700 hover:text-amber-900"}`}
                       title="Dismiss"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -3515,7 +3515,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     activeModule === "followup" ? "Paste the patient's discharge summary or recent clinical encounter notes..." :
                     "Describe the patient's symptoms in detail..."
                   }
-                  className="w-full min-h-[180px] max-h-[320px] font-mono text-sm resize-y bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#e8f4f8] placeholder:text-[#4a5568] focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] rounded-xl transition-all"
+                  className={`w-full min-h-[180px] max-h-[320px] font-mono text-sm resize-y rounded-xl transition-all focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] ${isDark ? "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#e8f4f8] placeholder:text-[#4a5568]" : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"}`}
                   style={{ fieldSizing: 'fixed' } as React.CSSProperties}
                 />
 
@@ -3605,13 +3605,13 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       </div>
                       <p className="text-sm font-medium mb-1 text-white">Ready to automate</p>
                       <p className="text-xs text-[#8892a4] mb-3">Enter patient information and click "Run Automation"</p>
-                      <p className="text-xs text-[#8892a4] font-mono bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] px-2 py-1 rounded">Ctrl+Enter to run</p>
+                      <p className={`text-xs font-mono px-2 py-1 rounded ${isDark ? "text-[#8892a4] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)]" : "text-slate-500 bg-slate-100 border border-slate-200"}`}>Ctrl+Enter to run</p>
                     </motion.div>
                   )}
 
                   {loading && (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex-1 min-h-[200px] sm:min-h-[320px] rounded-xl border border-[var(--accent-muted)] bg-[#0d1424] flex flex-col items-center justify-center gap-4"
+                      className={`flex-1 min-h-[200px] sm:min-h-[320px] rounded-xl border border-[var(--accent-muted)] flex flex-col items-center justify-center gap-4 ${isDark ? "bg-[#0d1424]" : "bg-white"}`}
                     >
                       <div className="relative">
                         <div className="w-12 h-12 rounded-full border-2 border-[var(--accent-glow)] border-t-[var(--accent-primary)] animate-spin" />
@@ -3697,7 +3697,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       )}
 
                       {/* Main output */}
-                      <div className="flex-1 rounded-xl border border-[var(--accent-muted)] bg-[#0d1424] p-5 overflow-auto shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                      <div className={`flex-1 rounded-xl border border-[var(--accent-muted)] p-5 overflow-auto shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${isDark ? "bg-[#0d1424]" : "bg-white"}`}>
                         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--accent-muted)]">
                           <Brain className="w-4 h-4 text-[var(--accent-primary)]" />
                           <span className="text-xs font-semibold text-[var(--accent-primary)] font-mono tracking-widest">AI OUTPUT</span>
