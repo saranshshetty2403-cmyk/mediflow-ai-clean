@@ -3028,7 +3028,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueFilter}
                         onChange={(e) => setQueueFilter(e.target.value)}
-                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`}
                       >
                         <option value="all">All Modules</option>
                         <option value="critical">Critical / High</option>
@@ -3045,7 +3045,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueNameFilter}
                         onChange={(e) => setQueueNameFilter(e.target.value)}
-                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}` max-w-[140px]
+                        className={`text-xs border rounded-md px-2 py-1 max-w-[140px] focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`}
                       >
                         <option value="all">All Patients</option>
                         {Array.from(new Set(queue.map(q => q.patientName).filter(Boolean))).sort().map(name => (
@@ -3058,7 +3058,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueStatusFilter}
                         onChange={(e) => setQueueStatusFilter(e.target.value)}
-                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`}
                       >
                         <option value="all">Active (excl. Resolved)</option>
                         <option value="pending">Pending Review</option>
@@ -3071,7 +3071,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <select
                         value={queueSort}
                         onChange={(e) => setQueueSort(e.target.value as typeof queueSort)}
-                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`
+                        className={`text-xs border rounded-md px-2 py-1 focus:border-[var(--accent-glow)] focus:outline-none ${isDark ? "bg-[#0d1424] text-white border-[rgba(255,255,255,0.08)]" : "bg-white text-slate-900 border-slate-300"}`}
                       >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
