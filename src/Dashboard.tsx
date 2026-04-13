@@ -1334,6 +1334,20 @@ export default function Dashboard() {
     }
   };
 
+  // AI provider state — fetched once on mount from /api/get-ai-config
+  // Displays "Gemma 4 Active" or "Ollama Active (model)" in the header
+  const [aiProvider, setAiProvider] = useState<{ provider: string; model: string } | null>(null);
+  useEffect(() => {
+    fetch("/api/get-ai-config")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && data.provider) {
+          setAiProvider({ provider: data.provider, model: data.model || "" });
+        }
+      })
+      .catch(() => { /* silently ignore — indicator stays as default */ });
+  }, []);
+
   // Sync queue to localStorage whenever it changes (backup for DB failures)
   useEffect(() => {
     if (queue.length > 0) saveQueueToLocalStorage(queue);
@@ -2858,9 +2872,13 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                 {MODULE_DESCRIPTIONS[activeModule].time}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-[var(--accent-primary)]/70 font-mono">
-              <div className="w-2 h-2 rounded-full bg-[var(--accent-primary)] ai-active-dot" />
-              AI ACTIVE
+            <div className="flex items-center gap-1.5 text-xs font-mono" title={aiProvider?.provider === 'ollama' ? `Local Ollama — ${aiProvider.model}` : 'Google AI — Gemma 4 31B'}>
+              <div className={`w-2 h-2 rounded-full ai-active-dot ${aiProvider?.provider === 'ollama' ? 'bg-amber-400' : 'bg-[var(--accent-primary)]'}`} />
+              <span className={aiProvider?.provider === 'ollama' ? 'text-amber-400/80' : 'text-[var(--accent-primary)]/70'}>
+                {aiProvider?.provider === 'ollama'
+                  ? `OLLAMA — ${aiProvider.model}`
+                  : 'GEMMA 4 ACTIVE'}
+              </span>
             </div>
 
           </div>
