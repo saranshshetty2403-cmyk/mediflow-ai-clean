@@ -94,7 +94,7 @@ const SimpleMarkdown = ({ children }: { children: string }) => {
         }
         if (/^[-*]\s/.test(line)) {
           const text = line.replace(/^[-*]\s/, "");
-          return <p key={i} className="pl-3 text-gray-300 before:content-['\u2022'] before:mr-2 before:text-[var(--accent-primary)]">{text}</p>;
+          return <p key={i} className="pl-3 text-gray-300 flex gap-2"><span className="text-[var(--accent-primary)] select-none flex-shrink-0">•</span><span>{text}</span></p>;
         }
         if (/^\d+\.\s/.test(line)) {
           return <p key={i} className="pl-3 text-gray-300">{line}</p>;
