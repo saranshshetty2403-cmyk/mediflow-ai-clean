@@ -131,7 +131,7 @@ Google's Gemma 4 (`gemma-4-31b-it`) was chosen as the primary AI engine for thre
 
 **2. Instruction-following and structured JSON output.** Clinical workflow automation requires deterministic, structured outputs — a medication table must have exactly the right fields; a triage routing decision must be one of a fixed set of departments. Gemma 4's instruction-tuned variant (`-it` suffix) reliably follows complex system prompts and produces valid JSON when prompted with a schema, which is critical for downstream processing in `api/scan-prescription.ts` and `api/gemma.ts`.
 
-**3. Open-weight availability for local deployment.** Because Gemma 4 is open-weight, healthcare organisations with strict data-residency requirements can run the model locally via Ollama or llama.cpp. MediFlow AI includes a local model integration layer (`server/_core/localModel.ts`) that routes all inference to a local Ollama endpoint when `OLLAMA_URL` is set, with zero code changes required. This design choice is supported by research showing that on-premise AI deployment significantly reduces HIPAA compliance risk in clinical settings [6].
+**3. Open-weight availability for local deployment.** Because Gemma 4 is open-weight, healthcare organisations with strict data-residency requirements can run the model locally via Ollama or llama.cpp. MediFlow AI includes a local model integration layer (`api/_ai-provider.ts`) that routes all inference to a local Ollama endpoint when `OLLAMA_URL` is set, with zero code changes required. This design choice is supported by research showing that on-premise AI deployment significantly reduces HIPAA compliance risk in clinical settings [6].
 
 The Gemini 2.5 Flash model is used exclusively as a fallback for the MediScan vision endpoint when the primary Gemma 4 call times out — this is a resilience pattern, not a primary dependency.
 
@@ -310,27 +310,58 @@ The returned `rxcui` (RxNorm Concept Unique Identifier) and `name` are used to c
 
 ---
 
-## Local Model Support (Ollama / llama.cpp)
+## Local Model Support (Ollama)
 
-For healthcare organisations that cannot send patient data to external APIs due to HIPAA, GDPR, or institutional data-residency policies, MediFlow AI supports fully local inference via Ollama or any OpenAI-compatible server running a Gemma model.
+For healthcare organisations that cannot send patient data to external APIs — particularly those operating under India's **ABDM data-residency requirements** — MediFlow AI supports fully local inference via [Ollama](https://ollama.com). When running in Ollama mode, no patient data leaves your server.
 
-Set the following environment variables to activate local mode:
+### How It Works
 
-```bash
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=gemma3:27b
+All AI inference in MediFlow AI flows through a single shared helper at `api/_ai-provider.ts`. The routing is controlled by one environment variable:
+
+```
+OLLAMA_URL is SET   →  All inference routes to your local Ollama server
+OLLAMA_URL is UNSET →  All inference routes to Google AI Studio (Gemma 4 31B first)
 ```
 
-When `OLLAMA_URL` is set, `server/_core/localModel.ts` routes all inference requests to the local endpoint. The Model Settings panel in the dashboard displays the active model, health status, and setup instructions.
+This covers all six AI endpoints: `gemma.ts`, `clean-transcript.ts`, `generate-handoff.ts`, `generate-sample.ts`, `scan-prescription.ts`, and `extract-from-image.ts`. The same clinical prompts and logic run identically in both modes.
 
-**Recommended local models:**
+### Quick Setup
 
-| Model | VRAM Required | Use Case |
-|---|---|---|
-| `gemma3:4b` | 4 GB | Development / low-resource environments |
-| `gemma3:12b` | 8 GB | Balanced performance |
-| `gemma3:27b` | 16 GB | Production quality, recommended |
-| `gemma-4-31b-it` (via llama.cpp) | 24 GB | Maximum quality, matches cloud performance |
+```bash
+# 1. Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Pull a Gemma model
+ollama pull gemma3:4b
+
+# 3. Start the Ollama server
+ollama serve
+
+# 4. Set environment variables in your .env file
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=gemma3:4b
+```
+
+See **[OLLAMA_SETUP.md](OLLAMA_SETUP.md)** for the complete setup guide including remote server configuration, systemd service setup, and troubleshooting.
+
+**Recommended models:**
+
+| Model | VRAM Required | Speed | Best For |
+|---|---|---|---|
+| `gemma3:4b` | 4 GB | Fast (2–5s GPU) | High-volume OPD, triage |
+| `gemma3:12b` | 8 GB | Medium (5–10s GPU) | Discharge summaries, handoffs |
+| `gemma3:27b` | 16 GB | Slower (10–20s GPU) | Complex clinical notes |
+| CPU (any model) | 0 GB VRAM | Slow (15–60s) | Offline-only environments |
+
+### Verifying Ollama Is Active
+
+Every API response includes a `provider` field:
+- `"provider": "ollama"` — inference ran on your local Ollama server
+- `"provider": "google"` — inference ran on Google AI Studio
+
+### Data Privacy Guarantee
+
+When `OLLAMA_URL` is set, the only network calls made by MediFlow AI are to `${OLLAMA_URL}/v1/chat/completions`. No patient data is sent to Google, OpenAI, or any external service. The `api/_ai-provider.ts` source code can be audited to verify this.
 
 ---
 

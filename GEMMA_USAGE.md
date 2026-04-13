@@ -371,27 +371,56 @@ try {
 
 ---
 
-## Local Model Routing
+## Local Model Routing (Ollama)
 
-When `OLLAMA_URL` is set in the environment, `server/_core/localModel.ts` intercepts all inference calls and routes them to the local Ollama endpoint instead of Google AI Studio:
+All AI inference in MediFlow AI flows through a single shared helper at `api/_ai-provider.ts`. When `OLLAMA_URL` is set in the environment, this helper routes all inference to the local Ollama server using the OpenAI-compatible `/v1/chat/completions` endpoint — the same message format used by Google AI Studio, making it a true drop-in replacement.
 
 ```typescript
-export async function callLocalModel(prompt: string, options: ModelOptions) {
-  const response = await fetch(`${process.env.OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+// From api/_ai-provider.ts
+export function getProviderMode(): "ollama" | "google" {
+  return process.env.OLLAMA_URL ? "ollama" : "google";
+}
+
+async function callOllama(req: AIRequest): Promise<AIResponse> {
+  const ollamaUrl = process.env.OLLAMA_URL!;
+  const model = process.env.OLLAMA_MODEL || "gemma3:4b";
+
+  // Ollama OpenAI-compatible endpoint — same message format as Google AI Studio
+  const response = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: process.env.OLLAMA_MODEL || 'gemma3:27b',
-      prompt,
+      model,
+      messages: [
+        { role: "system", content: req.systemPrompt },
+        { role: "user",   content: req.userMessage  },
+      ],
+      max_tokens: req.maxTokens ?? 4096,
+      temperature: req.temperature ?? 0.3,
       stream: false,
-      options: { temperature: options.temperature ?? 0.3 }
-    })
+    }),
   });
-  return response.json();
+  // ... error handling and response extraction
 }
 ```
 
-This enables healthcare organisations to run MediFlow AI entirely on-premise, with no patient data leaving the local network. The same prompt structures and JSON schemas are used regardless of whether the model is running locally or in the cloud.
+The main entry point `invokeAI()` is called identically from all six AI endpoints:
+
+```typescript
+// From api/gemma.ts (and all other AI endpoints)
+const result = await invokeAI({
+  systemPrompt,
+  userMessage: input,
+  maxTokens: 4096,
+  temperature: 0.3,
+});
+// result.provider === "ollama" | "google"
+// result.model === "gemma3:4b (Ollama local)" | "Gemma 4 31B"
+```
+
+This enables healthcare organisations to run MediFlow AI entirely on-premise, with no patient data leaving the local network. The same prompt structures, JSON schemas, and clinical logic run identically in both modes. The `provider` field in every API response confirms which backend was used.
+
+See [OLLAMA_SETUP.md](OLLAMA_SETUP.md) for the complete setup guide.
 
 ---
 

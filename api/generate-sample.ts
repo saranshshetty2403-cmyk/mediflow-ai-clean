@@ -1,4 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { invokeAI, getProviderMode } from "./_ai-provider";
+// Provider routing (Ollama local vs Google AI Studio cloud) is handled by _ai-provider.ts.
+// Set OLLAMA_URL env var to route all inference to a local Ollama server.
 
 const MODULE_SAMPLE_PROMPTS: Record<string, string> = {
   intake: `Generate a realistic, filled-in patient intake note for a clinical AI demo.
@@ -35,61 +38,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { module, previousSample, existingNames } = req.body as { module: string; previousSample?: string; existingNames?: string[] };
+  const { module, previousSample, existingNames } = req.body as {
+    module: string;
+    previousSample?: string;
+    existingNames?: string[];
+  };
 
   if (!module) return res.status(400).json({ error: "Missing module" });
 
   const basePrompt = MODULE_SAMPLE_PROMPTS[module];
   if (!basePrompt) return res.status(400).json({ error: `Unknown module: ${module}` });
 
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
-
   // Build the exclusion clause if there are already-used names in the queue
-  const exclusionClause = existingNames && existingNames.length > 0
-    ? `\n\nCRITICAL: The following patient names are already in the queue. You MUST NOT use any of them or any variation of them. Generate a completely different name:\n${existingNames.map((n) => `- ${n}`).join("\n")}`
-    : "";
+  const exclusionClause =
+    existingNames && existingNames.length > 0
+      ? `\n\nCRITICAL: The following patient names are already in the queue. You MUST NOT use any of them or any variation of them. Generate a completely different name:\n${existingNames.map((n) => `- ${n}`).join("\n")}`
+      : "";
 
   const userPrompt = previousSample
     ? `${basePrompt}${exclusionClause}\n\nIMPORTANT: Generate a DIFFERENT scenario from this previous sample:\n"${previousSample.slice(0, 200)}..."`
     : `${basePrompt}${exclusionClause}`;
 
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "models/gemma-4-31b-it",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a medical education assistant that generates realistic clinical sample data for training purposes. All data is fictional and for demo use only.",
-          },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 800,
-        temperature: 0.9,
-      }),
-    }
-  );
+  const systemPrompt =
+    "You are a medical education assistant that generates realistic clinical sample data for training purposes. All data is fictional and for demo use only.";
 
-  if (!response.ok) {
-    const err = await response.text();
-    return res.status(502).json({ error: `Gemma API error: ${response.status}`, detail: err });
+  try {
+    // invokeAI routes to Ollama (local) or Google AI Studio (cloud) based on OLLAMA_URL env var.
+    const result = await invokeAI({
+      systemPrompt,
+      userMessage: userPrompt,
+      maxTokens: 800,
+      temperature: 0.9, // Higher temperature for varied sample generation
+    });
+
+    return res.status(200).json({
+      sample:   result.content,
+      model:    result.model,
+      provider: result.provider,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown AI error";
+    const isOllamaError = getProviderMode() === "ollama";
+    return res.status(isOllamaError ? 503 : 502).json({ error: message });
   }
-
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>;
-  };
-
-  let sample = data.choices?.[0]?.message?.content ?? "";
-  // Strip thought tags
-  sample = sample.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
-
-  return res.status(200).json({ sample });
 }

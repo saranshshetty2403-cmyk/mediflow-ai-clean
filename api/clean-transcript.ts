@@ -1,4 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { invokeAI, getProviderMode } from "./_ai-provider";
+// Provider routing (Ollama local vs Google AI Studio cloud) is handled by _ai-provider.ts.
+// Set OLLAMA_URL env var to route all inference to a local Ollama server.
 
 const MODULE_FORMAT_PROMPTS: Record<string, string> = {
   intake: `You are a clinical documentation assistant. You will receive a raw voice transcript that may contain repeated phrases, filler words, and speech artifacts.
@@ -103,96 +106,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const systemPrompt = MODULE_FORMAT_PROMPTS[module] ?? MODULE_FORMAT_PROMPTS.intake;
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
 
-  // Try Gemma 4 31B first, fall back to Gemini 2.5 Flash
-  const models = [
-    { type: "openai-compat", model: "models/gemma-4-31b-it", label: "Gemma 4 31B" },
-    { type: "gemini-native", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  ];
+  try {
+    // invokeAI routes to Ollama (local) or Google AI Studio (cloud) based on OLLAMA_URL env var.
+    const result = await invokeAI({
+      systemPrompt,
+      userMessage: `RAW TRANSCRIPT:\n${rawTranscript}`,
+      maxTokens: 1024,
+      temperature: 0.2,
+    });
 
-  for (const def of models) {
-    try {
-      let responseText: string | null = null;
-
-      if (def.type === "gemini-native") {
-        const resp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${def.model}:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: `${systemPrompt}\n\nRAW TRANSCRIPT:\n${rawTranscript}` },
-                  ],
-                },
-              ],
-              generationConfig: { maxOutputTokens: 1024, temperature: 0.2 },
-            }),
-          }
-        );
-        if (!resp.ok) {
-          if (resp.status === 429 || resp.status === 404) continue;
-          const err = await resp.text();
-          return res.status(502).json({ error: `API error ${resp.status}`, detail: err.slice(0, 300) });
-        }
-        const data = await resp.json() as {
-          candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
-        };
-        responseText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
-      } else {
-        // OpenAI-compat (Gemma)
-        const resp = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: def.model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `RAW TRANSCRIPT:\n${rawTranscript}` },
-              ],
-              max_tokens: 1024,
-              temperature: 0.2,
-            }),
-          }
-        );
-        if (!resp.ok) {
-          if (resp.status === 429) continue;
-          const err = await resp.text();
-          return res.status(502).json({ error: `API error ${resp.status}`, detail: err.slice(0, 300) });
-        }
-        const data = await resp.json() as {
-          choices: Array<{ message: { content: string } }>;
-        };
-        let text = data.choices?.[0]?.message?.content ?? null;
-        if (text) {
-          // Strip Gemma thought tags
-          text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
-        }
-        responseText = text;
-      }
-
-      if (responseText) {
-        return res.status(200).json({
-          cleanedNote: responseText,
-          usedModel: def.label,
-          switchedFrom: fallbackLog.length > 0 ? [...fallbackLog] : undefined,
-        });
-      }
-    } catch {
-      continue;
-    }
+    return res.status(200).json({
+      cleanedNote:  result.content,
+      usedModel:    result.model,
+      provider:     result.provider,
+      switchedFrom: result.switchedFrom,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown AI error";
+    const isOllamaError = getProviderMode() === "ollama";
+    return res.status(isOllamaError ? 503 : 429).json({ error: message });
   }
-
-  return res.status(429).json({
-    error: "All AI models are currently unavailable. Please try again shortly.",
-  });
 }

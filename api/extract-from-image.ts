@@ -1,4 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+// NOTE: extract-from-image.ts handles vision/image tasks that require multimodal models.
+// Ollama with gemma3:4b supports vision via the same OpenAI-compatible /v1/chat/completions
+// endpoint using image_url content blocks — identical to the Google AI Studio format.
+// When OLLAMA_URL is set, the callModel function routes to the local Ollama server instead.
+import { getProviderMode } from "./_ai-provider";
 
 // ── Non-medscan module prompts (unchanged) ─────────────────────────────────
 const MODULE_EXTRACT_PROMPTS: Record<string, string> = {
@@ -339,8 +344,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const systemPrompt = isMedscan ? MEDSCAN_SYSTEM_PROMPT : null;
 
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
+  // Route to Ollama (local) or Google AI Studio (cloud) based on OLLAMA_URL env var.
+  // When using Ollama, gemma3:4b handles vision tasks via its multimodal capabilities.
+  const isOllama = getProviderMode() === "ollama";
+  const ollamaUrl = process.env.OLLAMA_URL;
+  const ollamaModel = process.env.OLLAMA_MODEL || "gemma3:4b";
+  const apiKey = isOllama ? "ollama" : process.env.GOOGLE_AI_STUDIO_API_KEY;
+  if (!isOllama && !apiKey) return res.status(500).json({ error: "API key not configured" });
 
   const mimeType = imageDataUrl.startsWith("data:image/png")
     ? "image/png"
@@ -356,13 +366,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Invalid image data URL format" });
   }
 
-  // ── Race all models in parallel — highest-priority winner used for consistency ────────
+  // ── Ollama path: single local model call ──────────────────────────────────
+  // When OLLAMA_URL is set, route the vision task to the local Ollama server.
+  // gemma3:4b supports multimodal vision via the OpenAI-compatible endpoint.
+  if (isOllama && ollamaUrl) {
+    try {
+      const messages: Array<{ role: string; content: unknown }> = [];
+      if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: extractPrompt },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}`, detail: "high" } },
+        ],
+      });
+      const resp = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages,
+          max_tokens: isMedscan ? 4096 : 2048,
+          temperature: 0,
+          stream: false,
+        }),
+      });
+      if (!resp.ok) throw new Error(`Ollama HTTP ${resp.status}`);
+      const data = await resp.json() as { choices: Array<{ message: { content: string } }> };
+      const text = data.choices?.[0]?.message?.content?.trim() ?? null;
+      if (!text) throw new Error("Ollama returned empty response");
+      if (isMedscan) {
+        const parsed = JSON.parse(text);
+        return res.status(200).json({ structuredData: parsed, usedModel: `${ollamaModel} (Ollama local)`, provider: "ollama" });
+      }
+      return res.status(200).json({ extractedText: text, usedModel: `${ollamaModel} (Ollama local)`, provider: "ollama" });
+    } catch (err) {
+      return res.status(503).json({ error: `Ollama vision inference failed: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  }
+
+  // ── Google AI Studio path (default): race all models in parallel ───────────
   // All models run simultaneously for speed. If multiple succeed, the one with
   // the lowest index in MODELS wins (Gemini 2.5 Flash preferred for consistency).
   const controllers = MODELS.map(() => new AbortController());
 
   const promises = MODELS.map((def, i) =>
-    callModel(def, apiKey, extractPrompt, systemPrompt, mimeType, base64Data, isMedscan, controllers[i].signal).then(result => ({
+    callModel(def, apiKey!, extractPrompt, systemPrompt, mimeType, base64Data, isMedscan, controllers[i].signal).then(result => ({
       ...result,
       index: i,
     }))

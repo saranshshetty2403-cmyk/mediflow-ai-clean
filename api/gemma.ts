@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { invokeAI, getProviderMode } from "./_ai-provider";
 
 // Clinical system prompts for each module
 const CLINICAL_PREAMBLE = `You are a clinical documentation AI assistant embedded in a healthcare workflow automation platform. 
@@ -149,15 +150,12 @@ const PROMPTS: Record<string, string> = {
   followup: FOLLOWUP_PROMPT,
 };
 
-// Strip Gemma 4 internal thought tags from response
-function stripThoughtTags(content: string): string {
-  return content
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
-    .replace(/^\s+/, "")
-    .trim();
-}
-
 // Main request handler
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider routing is handled by _ai-provider.ts:
+//   - If OLLAMA_URL env var is set → routes to local Ollama server (on-premise)
+//   - Otherwise                   → routes to Google AI Studio (Gemma 4 first)
+// This allows the same codebase to run in cloud or fully local/offline mode.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -189,111 +187,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "API key not configured" });
-  }
+  try {
+    // invokeAI automatically selects Ollama (local) or Google AI Studio (cloud)
+    // based on the OLLAMA_URL environment variable. See api/_ai-provider.ts.
+    const result = await invokeAI({
+      systemPrompt,
+      userMessage: input,
+      maxTokens: 4096,
+      temperature: 0.3,
+    });
 
-  // ── 3-model fallback chain: Gemma 4 31B → Gemini 2.5 Flash → Gemini 2.5 Flash-Lite ──
-  type ModelDef =
-    | { type: "openai-compat"; model: string; label: string }
-    | { type: "gemini-native"; model: string; label: string };
-
-  const MODELS: ModelDef[] = [
-    { type: "openai-compat", model: "models/gemma-4-31b-it", label: "Gemma 4 31B"           },
-    { type: "gemini-native", model: "gemini-2.5-flash",      label: "Gemini 2.5 Flash"      },
-    { type: "gemini-native", model: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
-  ];
-
-  const fallbackLog: string[] = [];
-
-  for (let i = 0; i < MODELS.length; i++) {
-    const def = MODELS[i];
-    let rawText: string | null = null;
-    let httpStatus = 500;
-
-    try {
-      if (def.type === "openai-compat") {
-        const resp = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-            body: JSON.stringify({
-              model: def.model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: input },
-              ],
-              max_tokens: 4096,
-              temperature: 0.3,
-            }),
-          }
-        );
-        httpStatus = resp.status;
-        if (resp.ok) {
-          const data = await resp.json() as { choices: Array<{ message: { content: string } }> };
-          rawText = data.choices?.[0]?.message?.content ?? null;
-          if (rawText) rawText = stripThoughtTags(rawText);
-        }
-      } else {
-        // gemini-native
-        const resp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${def.model}:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: `${systemPrompt}\n\nPATIENT INPUT:\n${input}` }] }],
-              generationConfig: { maxOutputTokens: 4096, temperature: 0.3 },
-            }),
-          }
-        );
-        httpStatus = resp.status;
-        if (resp.ok) {
-          const data = await resp.json() as {
-            candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
-          };
-          rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
-        }
-      }
-    } catch {
-      fallbackLog.push(def.label);
-      continue;
-    }
-
-    // Rate-limited or server error — try next model
-    if (httpStatus === 429 || httpStatus === 503 || httpStatus === 500) {
-      fallbackLog.push(def.label);
-      if (i === MODELS.length - 1) {
-        return res.status(429).json({
-          error: "All AI models are currently rate-limited.",
-          detail: `Tried: ${fallbackLog.join(" → ")}. All quota limits reached. Please try again in a few minutes.`,
-          isQuotaError: true,
-          triedModels: fallbackLog,
-        });
-      }
-      continue;
-    }
-
-    if (httpStatus < 200 || httpStatus >= 300 || !rawText) {
-      return res.status(502).json({ error: `API error from ${def.label} (status ${httpStatus})` });
-    }
-
-    const content = rawText;
     const confidence = Math.floor(Math.random() * 15) + 85;
-    const urgencyScoreMatch = content.match(/Urgency Score[:\s]+(\d+)/i);
-    const riskScoreMatch = content.match(/Risk Score[:\s]+(\d+)/i);
+    const urgencyScoreMatch = result.content.match(/Urgency Score[:\s]+(\d+)/i);
+    const riskScoreMatch    = result.content.match(/Risk Score[:\s]+(\d+)/i);
 
     return res.status(200).json({
-      content,
+      content:      result.content,
       confidence,
       urgencyScore: urgencyScoreMatch ? parseInt(urgencyScoreMatch[1]) : undefined,
-      riskScore: riskScoreMatch ? parseInt(riskScoreMatch[1]) : undefined,
-      model: def.label,
-      switchedFrom: fallbackLog.length > 0 ? fallbackLog : undefined,
+      riskScore:    riskScoreMatch    ? parseInt(riskScoreMatch[1])    : undefined,
+      model:        result.model,
+      provider:     result.provider,   // "ollama" | "google" — shown in UI
+      switchedFrom: result.switchedFrom,
     });
-  }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown AI inference error";
+    const isQuotaError = message.includes("rate-limited") || message.includes("quota");
+    const isOllamaError = getProviderMode() === "ollama";
 
-  return res.status(500).json({ error: "Unexpected error in fallback chain" });
+    if (isQuotaError) {
+      return res.status(429).json({
+        error: "All AI models are currently rate-limited.",
+        detail: message,
+        isQuotaError: true,
+      });
+    }
+    if (isOllamaError) {
+      return res.status(503).json({
+        error: "Ollama local inference failed.",
+        detail: message,
+        isOllamaError: true,
+      });
+    }
+    return res.status(500).json({ error: message });
+  }
 }
