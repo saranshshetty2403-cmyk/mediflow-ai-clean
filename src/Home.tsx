@@ -1,5 +1,5 @@
 /*
- * MediFlow AI — Homepage v4
+ * MediFlow AI - Homepage v4
  * Design: Mobile-first, clean clinical dark interface
  * Changes: new images (app on screen), staff/patient benefits, Ollama+Gemma logos, mobile nav
  */
@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// ── Images (v3 — all device screens show MediFlow AI) ──────────────────────
+// ── Images (v3 - all device screens show MediFlow AI) ──────────────────────
 const HERO_IMG =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663502701477/9Fkeuj2gWbxuFM7PC4fDRY/mediflow-hero-v3-X27sPijiQHA3LZwkDqYpBB.webp";
 const PROBLEM_IMG =
@@ -50,7 +50,7 @@ const OFFLINE_IMG =
 
 // ── Logos ──────────────────────────────────────────────────────────────────
 const OLLAMA_LOGO =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663502701477/9Fkeuj2gWbxuFM7PC4fDRY/ollama-logo_1136acdd.png";
+  "https://d2xsxph8kpxj0f.cloudfront.net/310519663502701477/9Fkeuj2gWbxuFM7PC4fDRY/ollama-logo-white_7f1a8115.png";
 const GEMMA_LOGO =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663502701477/9Fkeuj2gWbxuFM7PC4fDRY/gemma-logo_30a38483.png";
 
@@ -67,7 +67,7 @@ const features = [
     icon: ClipboardList,
     title: "Intake Summarisation",
     description:
-      "Paste raw patient notes or dictate via voice and receive a structured clinical summary — chief complaint, vitals, history, and risk flags — in under two seconds.",
+      "Paste raw patient notes or dictate via voice and receive a structured clinical summary: chief complaint, vitals, history, and risk flags - in under two seconds.",
     badge: "Core",
   },
   {
@@ -107,7 +107,7 @@ const features = [
   },
   {
     icon: ScanLine,
-    title: "MediScan — Prescription OCR",
+    title: "MediScan: Prescription OCR",
     description:
       "Upload a photo of a handwritten prescription and receive a structured medication list with dosage, frequency, and drug interaction warnings powered by RxNorm.",
     badge: "Vision",
@@ -116,7 +116,7 @@ const features = [
     icon: Mic,
     title: "Voice Input",
     description:
-      "All modules support continuous voice dictation. The system transcribes exactly what was spoken — grammar is cleaned up, but no medical terms are invented.",
+      "All modules support continuous voice dictation. The system transcribes exactly what was spoken, with grammar is cleaned up, but no medical terms are invented.",
     badge: "Accessibility",
   },
 ];
@@ -171,7 +171,7 @@ const studies = [
     authors: "Sundararaman & Gupta",
     journal: "Indian Journal of Medical Research, 2011",
     finding:
-      "Rural India has a physician density of 0.68 per 1,000 population versus 2.3 in urban areas. Language barriers compound access — over 40% of rural patients cannot communicate effectively in English.",
+      "Rural India has a physician density of 0.68 per 1,000 population versus 2.3 in urban areas. Language barriers compound access - over 40% of rural patients cannot communicate effectively in English.",
     url: "https://www.ijmr.org.in/article.asp?issn=0971-5916;year=2011;volume=134;issue=2;spage=143;epage=149",
   },
   {
@@ -202,7 +202,7 @@ const patientBenefits = [
   { icon: Heart, title: "Clearer discharge instructions", desc: "Plain-language instructions in the patient's own language mean they actually understand what to do after leaving hospital." },
   { icon: UserCheck, title: "Safer medication handovers", desc: "MediScan OCR and RxNorm drug interaction checks catch potential conflicts in handwritten prescriptions before they reach the patient." },
   { icon: Globe, title: "Instructions in 9 languages", desc: "Patients in rural Tamil Nadu, coastal Kerala, or urban Gujarat all receive discharge PDFs they can read and act on." },
-  { icon: Shield, title: "Data stays in the hospital", desc: "In offline Ollama mode, no patient data ever leaves the premises — full clinical AI with complete privacy." },
+  { icon: Shield, title: "Data stays in the hospital", desc: "In offline Ollama mode, no patient data ever leaves the premises - full clinical AI with complete privacy." },
 ];
 
 // ── Animation ──────────────────────────────────────────────────────────────
@@ -328,11 +328,11 @@ export default function Home() {
                 <Zap className="w-3 h-3" />
                 8 Clinical Modules
               </span>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D7377]/20 border-2 border-[#0D7377] text-teal-300 text-xs font-semibold">
                 <img src={GEMMA_LOGO} alt="Gemma" className="w-4 h-4 object-contain" />
                 Powered by Gemma 4
               </span>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D7377]/20 border-2 border-[#0D7377] text-teal-300 text-xs font-semibold">
                 <img src={OLLAMA_LOGO} alt="Ollama" className="w-4 h-4 object-contain" />
                 Runs on Ollama
               </span>
@@ -350,8 +350,8 @@ export default function Home() {
               variants={fadeUp}
               className="text-base sm:text-lg md:text-xl text-white/60 leading-relaxed mb-10 max-w-2xl"
             >
-              MediFlow AI automates the paperwork that consumes 40% of a clinician's day — intake summaries, triage
-              routing, discharge instructions, shift handoffs, and prescription scanning — so doctors can focus on
+              MediFlow AI automates the paperwork that consumes 40% of a clinician's day, including intake summaries, triage
+              routing, discharge instructions, shift handoffs, and prescription scanning, so doctors can focus on
               patients, not forms.
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3">
@@ -393,7 +393,7 @@ export default function Home() {
                 </p>
                 <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-10">
                   The result is physician burnout, medical errors, and patients who leave hospital without understanding
-                  their own discharge instructions. MediFlow AI was built to address this directly — not by replacing
+                  their own discharge instructions. MediFlow AI was built to address this directly, not by replacing
                   clinicians, but by eliminating the clerical work that prevents them from practising medicine.
                 </p>
               </motion.div>
@@ -601,12 +601,12 @@ export default function Home() {
                 </h2>
                 <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-4">
                   A patient who cannot read English cannot follow their discharge plan. Research shows only 36.7% of
-                  patients can correctly recall their medications after discharge — a number that falls even further
+                  patients can correctly recall their medications after discharge, a number that falls even further
                   when instructions are in an unfamiliar language.
                 </p>
                 <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-8">
                   MediFlow AI generates discharge PDFs in 9 Indian languages using Noto Sans font rendering for all
-                  Indic scripts — ensuring patients in rural Tamil Nadu, coastal Kerala, or urban Gujarat all receive
+                  Indic scripts, ensuring patients in rural Tamil Nadu, coastal Kerala, or urban Gujarat all receive
                   instructions they can actually read and act on.
                 </p>
               </motion.div>
@@ -644,8 +644,8 @@ export default function Home() {
                 </h2>
                 <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-6">
                   Many hospitals in underserved regions have unreliable internet or strict data residency requirements.
-                  MediFlow AI uses a dual-provider architecture — Gemma 4 (31B) via cloud when connected, and Gemma 2 (2B)
-                  running locally via Ollama when offline — so clinical AI is available regardless of connectivity.
+                  MediFlow AI uses a dual-provider architecture: Gemma 4 (31B) via cloud when connected, and Gemma 2 (2B)
+                  running locally via Ollama when offline, so clinical AI is available regardless of connectivity.
                 </p>
                 <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-8">
                   In Ollama mode, no patient data ever leaves the premises. The system routes automatically based on
@@ -654,14 +654,14 @@ export default function Home() {
 
                 {/* Powered-by logos */}
                 <motion.div variants={fadeUp} className="flex items-center gap-4 mb-8">
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                  <div className="flex items-center gap-2 bg-[#0D7377]/20 border-2 border-[#0D7377] rounded-xl px-4 py-2.5">
                     <img src={OLLAMA_LOGO} alt="Ollama" className="w-6 h-6 object-contain" />
-                    <span className="text-white/70 text-sm font-semibold">Ollama</span>
+                    <span className="text-teal-300 text-sm font-semibold">Ollama</span>
                   </div>
                   <span className="text-white/30 text-sm">+</span>
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                  <div className="flex items-center gap-2 bg-[#0D7377]/20 border-2 border-[#0D7377] rounded-xl px-4 py-2.5">
                     <img src={GEMMA_LOGO} alt="Gemma" className="w-6 h-6 object-contain" />
-                    <span className="text-white/70 text-sm font-semibold">Gemma 4</span>
+                    <span className="text-teal-300 text-sm font-semibold">Gemma 4</span>
                   </div>
                 </motion.div>
 
@@ -669,7 +669,7 @@ export default function Home() {
                   {[
                     { icon: Lock, text: "Patient data never leaves the premises in offline mode" },
                     { icon: Shield, text: "HIPAA-aligned architecture with no third-party data sharing" },
-                    { icon: CheckCircle2, text: "Automatic routing — no manual switching required" },
+                    { icon: CheckCircle2, text: "Automatic routing, no manual switching required" },
                   ].map((item) => (
                     <div key={item.text} className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
@@ -749,7 +749,7 @@ export default function Home() {
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0D7377]/10 border border-[#0D7377]/30 text-[#0D7377] text-sm font-medium mb-8">
               <Activity className="w-4 h-4" />
-              Live — try it now
+              Live, try it now
             </motion.div>
             <motion.h2 variants={fadeUp} className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
               Give your clinical team{" "}
@@ -786,7 +786,7 @@ export default function Home() {
             <img src={GEMMA_LOGO} alt="Gemma" className="w-5 h-5 object-contain opacity-50" />
             <img src={OLLAMA_LOGO} alt="Ollama" className="w-5 h-5 object-contain opacity-50" />
             <p className="text-white/30 text-sm">
-              Clinical AI for healthcare equity · Powered by Gemma 4 · Works online and offline
+              Clinical AI for healthcare equity | Powered by Gemma 4 | Works online and offline
             </p>
           </div>
           <p className="text-white/20 text-xs">
