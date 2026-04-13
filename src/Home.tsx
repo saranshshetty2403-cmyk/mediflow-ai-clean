@@ -6,6 +6,7 @@
 
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import type { Variants } from "framer-motion";
 import {
   ArrowRight,
   Brain,
@@ -177,11 +178,11 @@ const workflowSteps = [
   { step: "04", title: "Act", desc: "Add to queue, download as PDF, or route to the appropriate care team" },
 ];
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 32 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.1, 0.25, 1] } },
 };
-const stagger = { visible: { transition: { staggerChildren: 0.12 } } };
+const stagger: Variants = { visible: { transition: { staggerChildren: 0.12 } } };
 
 const badgeStyle = (badge: string) => {
   switch (badge) {
