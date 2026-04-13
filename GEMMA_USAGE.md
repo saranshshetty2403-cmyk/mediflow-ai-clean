@@ -116,9 +116,21 @@ Return a JSON object with fields: routing, urgencyScore, clinicalReason, actionT
 
 **Source file:** `api/gemma.ts` (module: `discharge`)
 
-**Trigger:** User submits diagnosis, medications, and selected literacy level.
+**Trigger:** User submits diagnosis, medications, selected literacy level, and output language.
 
-**System prompt (example for Basic literacy level):**
+**Regional Language Support:** The discharge module accepts an ISO 639-1 language code (`en`, `hi`, `bn`, `kn`, `ml`, `ta`, `te`, `mr`, `gu`). When a non-English language is selected, `buildDischargePrompt()` prepends the following instruction to the system prompt:
+
+```
+IMPORTANT: Generate the ENTIRE discharge instructions in [Language Name].
+All section headings, body text, medication instructions, and warning signs
+must be written in [Language Name] script. Drug names, ICD-10 codes, and
+numeric values (dosage amounts, dates) may remain in English/Latin script
+as this is standard clinical practice in India.
+```
+
+This instruction is model-agnostic — it works with both Gemma 4 (Google AI Studio) and Ollama. The PDF generator (`api/generate-discharge-pdf.ts`) receives the same language code and registers the appropriate Noto Sans font via PDFKit before rendering.
+
+**System prompt (example for Basic literacy level, Hindi output):**
 ```
 You are a patient education specialist. Write discharge instructions for a patient with the following diagnosis and treatment. The patient has a basic reading level (6th grade). Use:
 - Short sentences (under 15 words)

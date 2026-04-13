@@ -258,13 +258,29 @@ The returned `rxcui` (RxNorm Concept Unique Identifier) and `name` are used to c
 
 ### Module 3: Discharge Instructions
 
-**Input:** Diagnosis, medications, follow-up requirements, and patient literacy level (selectable: Basic, Standard, Medical).
+**Input:** Diagnosis, medications, follow-up requirements, patient literacy level (selectable: Basic, Standard, Medical), and output language.
 
-**Processing:** Gemma 4 generates plain-language discharge instructions tailored to the specified literacy level, including medication schedules, warning signs to watch for, and follow-up appointment guidance.
+**Processing:** Gemma 4 (or Ollama) generates plain-language discharge instructions tailored to the specified literacy level and output language, including medication schedules, warning signs to watch for, and follow-up appointment guidance.
 
-**Output:** Formatted discharge instruction document, copyable to clipboard or printable.
+**Output:** Formatted discharge instruction document in the selected language, copyable to clipboard, printable, or downloadable as a PDF with the correct regional script font.
 
-**Clinical rationale:** A study published in *Journal of Hospital Medicine* found that plain-language discharge instructions reduce 30-day readmission rates by 12–18% compared with standard medical discharge summaries [18].
+**Regional Language Support:** The Discharge Notes module supports 9 output languages — English plus 8 major Indian regional languages:
+
+| Language | Script | Noto Font Used |
+|----------|--------|----------------|
+| English | Latin | NotoSans-Regular |
+| Hindi (हिन्दी) | Devanagari | NotoSansDevanagari-Regular |
+| Bengali (বাংলা) | Bengali | NotoSansBengali-Regular |
+| Kannada (ಕನ್ನಡ) | Kannada | NotoSansKannada-Regular |
+| Malayalam (മലയാളം) | Malayalam | NotoSansMalayalam-Regular |
+| Tamil (தமிழ்) | Tamil | NotoSansTamil-Regular |
+| Telugu (తెలుగు) | Telugu | NotoSansTelugu-Regular |
+| Marathi (मराठी) | Devanagari | NotoSansDevanagari-Regular |
+| Gujarati (ગુજરાતી) | Gujarati | NotoSansGujarati-Regular |
+
+The language selection is passed to the AI model via a system prompt instruction (`buildDischargePrompt()` in `api/gemma.ts`) and to the PDF generator (`api/generate-discharge-pdf.ts`) which registers the appropriate Noto Sans font via PDFKit. Drug names, ICD-10 codes, and numeric values remain in English/Latin script as per standard Indian clinical practice. Works identically for both Gemma 4 and Ollama providers.
+
+**Clinical rationale:** A study published in *Journal of Hospital Medicine* found that plain-language discharge instructions reduce 30-day readmission rates by 12–18% compared with standard medical discharge summaries [18]. For Indian patients, discharge instructions in their native language further improve comprehension and adherence, particularly in rural and semi-urban populations where English literacy is limited.
 
 ---
 

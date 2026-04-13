@@ -44,7 +44,26 @@ Analyze the incoming patient message and provide a structured triage assessment:
 - [list any red flags or risk factors, or "None identified"]`;
 
 // Discharge prompt is built dynamically based on literacy level
-function buildDischargePrompt(literacyLevel: string): string {
+// ── REGIONAL LANGUAGE SUPPORT ─────────────────────────────────────────────────
+// Language names and their native script names for the AI prompt instruction.
+// When a non-English language is selected, the AI is instructed to generate
+// the ENTIRE discharge note in that language's script. Drug names, ICD-10 codes,
+// and numeric values remain in English/Latin as per standard Indian clinical practice.
+// Both Gemma 4 (31B) and Ollama (gemma3:4b / gemma2:2b) support all 8 languages,
+// though larger models produce more accurate multilingual output.
+const LANGUAGE_NAMES: Record<string, { english: string; native: string }> = {
+  en: { english: "English", native: "English" },
+  hi: { english: "Hindi", native: "हिन्दी" },
+  bn: { english: "Bengali", native: "বাংলা" },
+  kn: { english: "Kannada", native: "ಕನ್ನಡ" },
+  ml: { english: "Malayalam", native: "മലയാളം" },
+  ta: { english: "Tamil", native: "தமிழ்" },
+  te: { english: "Telugu", native: "తెలుగు" },
+  mr: { english: "Marathi", native: "मराठी" },
+  gu: { english: "Gujarati", native: "ગુજરાતી" },
+};
+
+function buildDischargePrompt(literacyLevel: string, language = "en"): string {
   const levelConfig: Record<string, { grade: string; style: string; vocab: string }> = {
     basic: {
       grade: "3rd to 4th grade",
@@ -64,8 +83,16 @@ function buildDischargePrompt(literacyLevel: string): string {
   };
 
   const cfg = levelConfig[literacyLevel] ?? levelConfig.standard;
+  const lang = LANGUAGE_NAMES[language] ?? LANGUAGE_NAMES.en;
 
-  return `${CLINICAL_PREAMBLE}
+  // Language instruction injected at the top of the prompt when non-English is selected.
+  // The AI is told to write ALL text in the target language script.
+  // Drug names, ICD-10 codes, and numbers are kept in English/Latin as standard practice.
+  const languageInstruction = language !== "en"
+    ? `\n\n**CRITICAL LANGUAGE REQUIREMENT:** You MUST write the ENTIRE discharge note in ${lang.english} (${lang.native}) script. Every word of every section heading, every instruction, every warning, and every explanation must be in ${lang.english}. Do NOT write in English except for: drug/medication names, ICD-10 codes, and numeric values (doses, times, measurements). This document will be read by a patient who speaks ${lang.english}.`
+    : "";
+
+  return `${CLINICAL_PREAMBLE}${languageInstruction}
 
 Generate patient discharge instructions calibrated to a **${cfg.grade} reading level**.
 ${cfg.style}
@@ -182,7 +209,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   //   OLLAMA_URL set   → Ollama local inference (on-premise, ABDM-compliant)
   //   OLLAMA_URL unset → Google AI Studio (Gemma 4 31B cloud)
   // ───────────────────────────────────────────────────────────────────────────
-  const { module, input, literacyLevel, _providerOverride } = req.body as { module: string; input: string; literacyLevel?: string; _providerOverride?: { mode: "ollama" | "gemma"; ollamaUrl?: string; ollamaModel?: string } };
+  // REGIONAL LANGUAGE: 'language' is the ISO 639-1 code for the output language.
+  // Supported: en (English), hi (Hindi), bn (Bengali), kn (Kannada), ml (Malayalam),
+  //            ta (Tamil), te (Telugu), mr (Marathi), gu (Gujarati)
+  // Defaults to 'en' if not provided. Both Gemma 4 and Ollama support all 8 languages.
+  const { module, input, literacyLevel, language, _providerOverride } = req.body as {
+    module: string;
+    input: string;
+    literacyLevel?: string;
+    language?: string;
+    _providerOverride?: { mode: "ollama" | "gemma"; ollamaUrl?: string; ollamaModel?: string };
+  };
 
   if (!module || !input) {
     return res.status(400).json({ error: "Missing module or input" });
@@ -191,7 +228,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Discharge prompt is built dynamically with the selected literacy level
   let systemPrompt: string;
   if (module === "discharge") {
-    systemPrompt = buildDischargePrompt(literacyLevel ?? "standard");
+    // Pass both literacy level and output language to the discharge prompt builder.
+    // language defaults to 'en' (English) if not provided by the frontend.
+    systemPrompt = buildDischargePrompt(literacyLevel ?? "standard", language ?? "en");
   } else {
     systemPrompt = PROMPTS[module];
     if (!systemPrompt) {

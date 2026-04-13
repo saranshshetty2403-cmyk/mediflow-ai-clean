@@ -1233,6 +1233,14 @@ export default function Dashboard() {
   const [result, setResult] = useState<AIResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [literacyLevel, setLiteracyLevel] = useState("standard");
+  // REGIONAL LANGUAGE SUPPORT: ISO 639-1 code for discharge note output language.
+  // Supported: en (English), hi (Hindi), bn (Bengali), kn (Kannada),
+  //            ml (Malayalam), ta (Tamil), te (Telugu), mr (Marathi), gu (Gujarati)
+  // This value is sent to:
+  //   1. /api/gemma → buildDischargePrompt() injects a language instruction into the AI prompt
+  //   2. /api/generate-discharge-pdf → selects the correct Noto Sans font for the language
+  // Works identically for both Gemma 4 (Google AI Studio) and Ollama providers.
+  const [dischargeLanguage, setDischargeLanguage] = useState("en");
   // Load queue from localStorage on first render
   const [queue, setQueue] = useState<AIResult[]>(() => {
     try {
@@ -1553,7 +1561,8 @@ export default function Dashboard() {
         riskScoreFromServer = res.urgencyScore;
         confidenceFromServer = res.confidence;
       } else if (activeModule === "discharge") {
-        const res = await callGemma({ module: "discharge", input: userInput, literacyLevel });
+        // REGIONAL LANGUAGE: pass dischargeLanguage so buildDischargePrompt() injects the correct language instruction
+        const res = await callGemma({ module: "discharge", input: userInput, literacyLevel, language: dischargeLanguage });
         content = typeof res.content === 'string' ? res.content : "";
         confidenceFromServer = res.confidence;
       } else if (activeModule === "urgency") {
@@ -2575,6 +2584,8 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
           caseId: result.id,
           confidence: result.confidence,
           generatedAt: result.timestamp.toISOString(),
+          // REGIONAL LANGUAGE: pass language so PDF uses the correct Noto Sans font
+          language: activeModule === "discharge" ? dischargeLanguage : "en",
         }),
       });
       if (!res.ok) throw new Error(`PDF API error: ${res.status}`);
@@ -2663,6 +2674,8 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
             caseId: item.id,
             confidence: item.confidence,
             generatedAt: item.timestamp instanceof Date ? item.timestamp.toISOString() : new Date(item.timestamp).toISOString(),
+            // REGIONAL LANGUAGE: for discharge queue items, use current dischargeLanguage setting
+            language: item.type === "discharge" ? dischargeLanguage : "en",
           }),
         });
         filename = `mediflow-${item.type}-${safeName}.pdf`;
@@ -3536,17 +3549,54 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                 />
 
                     {activeModule === "discharge" && (
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-foreground">Language Complexity:</label>
-                    <select
-                      value={literacyLevel}
-                      onChange={(e) => setLiteracyLevel(e.target.value)}
-                      className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[#e8f4f8] px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-glow)] cursor-pointer font-mono"
-                    >
-                      <option value="basic">Basic</option>
-                      <option value="standard">Standard</option>
-                      <option value="advanced">Advanced</option>
-                    </select>
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* Language Complexity — fixed dark mode label */}
+                    <div className="flex items-center gap-2">
+                      <label className={`text-sm font-medium ${isDark ? "text-[#a0b4c8]" : "text-slate-700"}`}>Language Complexity:</label>
+                      <select
+                        value={literacyLevel}
+                        onChange={(e) => setLiteracyLevel(e.target.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-glow)] cursor-pointer font-mono ${
+                          isDark
+                            ? "border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] text-[#e8f4f8]"
+                            : "border-slate-300 bg-white text-slate-800"
+                        }`}
+                      >
+                        <option value="basic">Basic</option>
+                        <option value="standard">Standard</option>
+                        <option value="advanced">Advanced</option>
+                      </select>
+                    </div>
+                    {/* Output Language — REGIONAL LANGUAGE SUPPORT */}
+                    {/* Sends ISO 639-1 code to /api/gemma (AI prompt) and /api/generate-discharge-pdf (Noto font) */}
+                    <div className="flex items-center gap-2">
+                      <label className={`text-sm font-medium ${isDark ? "text-[#a0b4c8]" : "text-slate-700"}`}>Output Language:</label>
+                      <select
+                        value={dischargeLanguage}
+                        onChange={(e) => setDischargeLanguage(e.target.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-glow)] cursor-pointer font-mono ${
+                          isDark
+                            ? "border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] text-[#e8f4f8]"
+                            : "border-slate-300 bg-white text-slate-800"
+                        }`}
+                      >
+                        <option value="en">English</option>
+                        <option value="hi">Hindi (हिन्दी)</option>
+                        <option value="bn">Bengali (বাংলা)</option>
+                        <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                        <option value="ml">Malayalam (മലയാളം)</option>
+                        <option value="ta">Tamil (தமிழ்)</option>
+                        <option value="te">Telugu (తెలుగు)</option>
+                        <option value="mr">Marathi (मराठी)</option>
+                        <option value="gu">Gujarati (ગુજરાતી)</option>
+                      </select>
+                    </div>
+                    {/* Ollama language quality note */}
+                    {settings.providerMode === "ollama" && dischargeLanguage !== "en" && (
+                      <p className={`text-xs ${isDark ? "text-amber-400/70" : "text-amber-600"}`}>
+                        ⚠ For best Indian language quality, use Gemma 4 or a larger Ollama model (≥12B).
+                      </p>
+                    )}
                   </div>
                 )}
 
