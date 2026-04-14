@@ -194,6 +194,7 @@ interface MedScanResult {
   rawExtractedText?: string;
   legibilityScore?: number;
   ddiAlerts?: Array<{ drug: string; interactions: string[] }>;
+  fdaWarnings?: Record<string, { boxedWarning: string; adverseReactions?: string }>; // drug name → FDA black box warning data
 }
 
 const _PROMPTS_REFERENCE: Record<Module, string> = {
@@ -1289,6 +1290,7 @@ export default function Dashboard() {
   const [editedMedText, setEditedMedText] = useState<string>(""); // editable extracted text
   const [medScanQueueId, setMedScanQueueId] = useState<string | null>(null); // tracks if current scan is already in queue
   const medScanPendingEntryRef = useRef<AIResult | null>(null); // holds the pending queue entry until user acts
+  const [expandedFdaWarning, setExpandedFdaWarning] = useState<string | null>(null); // drug name whose FDA warning panel is open
 
   // Photo capture state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -2491,7 +2493,58 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
             setMedScanResult(prev => prev ? { ...prev, ddiAlerts: ddiData.alerts } : prev);
             toast.warning(`${ddiData.alerts.length} potential drug interaction(s) detected. Review before dispensing.`, { duration: 6000 });
           }
-        }).catch(() => {}); // DDI check failure is non-critical
+         }).catch(() => {}); // DDI check failure is non-critical
+      }
+
+      // ── Step 5: OpenFDA Black Box Warning lookup (async, non-blocking) ──────
+      // Free FDA API — no key required for up to 1,000 req/day
+      // Queries the drug label endpoint for each medication and checks for boxed_warning field
+      // Only runs if there are medications to check
+      if (meds.length > 0) {
+        Promise.all(
+          meds.map(async (med) => {
+            if (!med.name || med.name.length < 3) return null;
+            const queryName = med.name.replace(/\[\?\]/g, "").replace(/\[illegible[^\]]*\]/gi, "").trim();
+            if (!queryName || queryName.length < 3) return null;
+            try {
+              const fdaRes = await fetch(
+                `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(queryName)}"+openfda.generic_name:"${encodeURIComponent(queryName)}"&limit=1`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              if (!fdaRes.ok) {
+                // Try generic name search as fallback
+                const fdaRes2 = await fetch(
+                  `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${encodeURIComponent(queryName)}"&limit=1`,
+                  { signal: AbortSignal.timeout(5000) }
+                );
+                if (!fdaRes2.ok) return null;
+                const fdaData2 = await fdaRes2.json() as { results?: Array<{ boxed_warning?: string[]; adverse_reactions?: string[] }> };
+                const result2 = fdaData2.results?.[0];
+                if (!result2?.boxed_warning?.[0]) return null;
+                return { name: queryName, boxedWarning: result2.boxed_warning[0].slice(0, 800), adverseReactions: result2.adverse_reactions?.[0]?.slice(0, 300) };
+              }
+              const fdaData = await fdaRes.json() as { results?: Array<{ boxed_warning?: string[]; adverse_reactions?: string[] }> };
+              const result = fdaData.results?.[0];
+              if (!result?.boxed_warning?.[0]) return null;
+              return { name: queryName, boxedWarning: result.boxed_warning[0].slice(0, 800), adverseReactions: result.adverse_reactions?.[0]?.slice(0, 300) };
+            } catch {
+              return null; // FDA API timeout/error — non-critical
+            }
+          })
+        ).then((results) => {
+          const warnings: Record<string, { boxedWarning: string; adverseReactions?: string }> = {};
+          results.forEach((r) => {
+            if (r) warnings[r.name] = { boxedWarning: r.boxedWarning, adverseReactions: r.adverseReactions };
+          });
+          if (Object.keys(warnings).length > 0) {
+            setMedScanResult(prev => prev ? { ...prev, fdaWarnings: warnings } : prev);
+            const warningCount = Object.keys(warnings).length;
+            toast.error(
+              `${warningCount} FDA Black Box Warning${warningCount > 1 ? "s" : ""} detected. Review before dispensing.`,
+              { duration: 8000, icon: "⚠️" }
+            );
+          }
+        }).catch(() => {}); // FDA lookup failure is non-critical
       }
 
       // Prepare queue entry — NOT auto-saved; user must click "Add to Queue" or download PDF
@@ -3454,7 +3507,23 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                           <tbody>
                             {medScanResult.medications.map((med, i) => (
                               <tr key={i} className={`border-b border-[rgba(255,255,255,0.04)] transition-colors hover:bg-[var(--accent-muted)] ${i % 2 === 0 ? "" : "bg-[rgba(255,255,255,0.01)]"}`}>
-                                <td className="px-3 py-2.5 font-medium text-white whitespace-nowrap">{med.name || "—"}</td>
+                                <td className="px-3 py-2.5 font-medium text-white">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="whitespace-nowrap">{med.name || "—"}</span>
+                                    {medScanResult.fdaWarnings?.[med.name.replace(/\[\?\]/g, "").trim()] && (
+                                      <button
+                                        onClick={() => setExpandedFdaWarning(
+                                          expandedFdaWarning === med.name ? null : med.name
+                                        )}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-900/60 border border-red-600/70 text-red-300 hover:bg-red-800/70 transition-colors flex-shrink-0"
+                                        title="FDA Black Box Warning — click to expand"
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        BLACK BOX
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
                                 <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.strength || "—"}</td>
                                 <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.form || "—"}</td>
                                 <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${isDark ? "text-[#e8f4f8]/70" : "text-slate-600"}`}>{med.frequency || "—"}</td>
@@ -3491,6 +3560,45 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                           </p>
                           <p className="text-xs text-gray-500">AI confidence score based on image clarity. Fields marked [?] require manual correction.</p>
                         </div>
+                      </div>
+                    )}
+
+                    {/* FDA Black Box Warnings — loaded async after scan */}
+                    {medScanResult.fdaWarnings && Object.keys(medScanResult.fdaWarnings).length > 0 && (
+                      <div className="rounded-lg border border-red-700/60 bg-red-950/20 p-4 space-y-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                          <span className="text-xs font-bold text-red-300 uppercase tracking-wide">FDA Black Box Warning{Object.keys(medScanResult.fdaWarnings).length > 1 ? "s" : ""} ({Object.keys(medScanResult.fdaWarnings).length})</span>
+                          <span className="ml-auto text-[10px] text-red-500/70 font-medium">Highest FDA Safety Alert</span>
+                        </div>
+                        {Object.entries(medScanResult.fdaWarnings).map(([drugName, warning], i) => (
+                          <div key={i} className="border border-red-800/40 rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => setExpandedFdaWarning(expandedFdaWarning === drugName ? null : drugName)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 bg-red-900/30 hover:bg-red-900/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-red-200">{drugName}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-800/60 text-red-300 font-mono">BLACK BOX</span>
+                              </div>
+                              {expandedFdaWarning === drugName
+                                ? <ChevronUp className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                                : <ChevronDown className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                            </button>
+                            {expandedFdaWarning === drugName && (
+                              <div className="px-4 py-3 space-y-2 bg-red-950/30">
+                                <p className="text-xs text-red-200 leading-relaxed">{warning.boxedWarning}</p>
+                                {warning.adverseReactions && (
+                                  <div className="pt-2 border-t border-red-800/30">
+                                    <p className="text-[10px] font-semibold text-red-400 mb-1 uppercase tracking-wide">Key Adverse Reactions</p>
+                                    <p className="text-xs text-red-300/80 leading-relaxed">{warning.adverseReactions}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-red-500/60 pt-1">Source: FDA Drug Label Database (OpenFDA). Black box warnings indicate serious or life-threatening risks. Consult a licensed pharmacist before dispensing.</p>
                       </div>
                     )}
 
