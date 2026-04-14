@@ -3059,10 +3059,11 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
             {/* Hamburger for mobile */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg text-[#8892a4] hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="lg:hidden p-2 rounded-lg text-white hover:bg-white/[0.10] transition-colors"
+              aria-label="Open navigation menu"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           <div>
