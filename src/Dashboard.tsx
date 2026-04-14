@@ -972,11 +972,11 @@ function QueueItem({ item, onExpand, onDelete, onEdit, onDownloadPdf, onStatusCh
           </div>
         ) : <div />}
         <div className="flex items-center gap-2 flex-wrap">
-          {item.type === "medscan" && scanImgUrl && (
+          {scanImgUrl && (
             <button
               onClick={(e) => { e.stopPropagation(); setScanViewerOpen(true); }}
               className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 px-2 py-1 rounded transition-colors border border-purple-800/40"
-              title="View original prescription scan"
+              title={item.type === 'medscan' ? 'View original prescription scan' : 'View original scanned document'}
             >
               <ImageIcon className="w-3 h-3" /> Scan
             </button>
@@ -1295,6 +1295,9 @@ export default function Dashboard() {
   const [photoLoading, setPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  // Stores the compressed scan image for the current session.
+  // Included in the queue entry when the user runs automation after scanning.
+  const lastScanImageRef = useRef<string | null>(null);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -1393,14 +1396,15 @@ export default function Dashboard() {
           }) as AIResult[]).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
           setQueue(loaded);
           saveQueueToLocalStorage(loaded);
-          // One-time migration: for any MediScan case that has a scan image in localStorage
-          // but no scanImageUrl in DB (cases saved before the scan_image_url column was added),
+          // One-time migration: for any case that has a scan image in localStorage
+          // but no scanImageUrl in DB (cases saved before the scan_image_url column was added
+          // or before all-module scan image support was added),
           // silently re-save to DB so the image is available on all devices (including mobile).
-          const medscanCasesWithoutImage = loaded.filter(
-            (c) => c.type === "medscan" && !c.scanImageUrl
+          const casesWithoutImage = loaded.filter(
+            (c) => !c.scanImageUrl
           );
-          if (medscanCasesWithoutImage.length > 0) {
-            medscanCasesWithoutImage.forEach((c) => {
+          if (casesWithoutImage.length > 0) {
+            casesWithoutImage.forEach((c) => {
               const storedImg = typeof localStorage !== "undefined"
                 ? localStorage.getItem(`mediflow_scan_${c.id}`) ?? undefined
                 : undefined;
@@ -1759,6 +1763,10 @@ export default function Dashboard() {
       if (rawAge) extractedAge = rawSex ? normaliseAgeSex(rawAge, rawSex) : rawAge;
       // ─────────────────────────────────────────────────────────────────────────
 
+      // Capture and clear the scan image ref so it's only used once per scan session
+      const scanImageForEntry = lastScanImageRef.current ?? undefined;
+      lastScanImageRef.current = null;
+
       const newResult: AIResult = {
         id: `case-${Date.now().toString(36).toUpperCase()}`,
         type: activeModule,
@@ -1776,6 +1784,8 @@ export default function Dashboard() {
         patientAge: extractedAge,
         status: "pending" as CaseStatus,
         urgencyReasons: urgencyReasons && urgencyReasons.length > 0 ? urgencyReasons : undefined,
+        // Attach the scanned image if this automation was triggered from a scan
+        scanImageUrl: scanImageForEntry,
       };
 
       if (!newResult.patientName || !newResult.patientAge) {
@@ -1787,6 +1797,10 @@ export default function Dashboard() {
       } else {
         setResult(newResult);
         setQueue((prev) => [newResult, ...prev]);
+        // Persist scan image in localStorage for this case (same pattern as MediScan)
+        if (scanImageForEntry) {
+          try { localStorage.setItem(`mediflow_scan_${newResult.id}`, scanImageForEntry); } catch { /* storage full */ }
+        }
         saveToDb(newResult);
         playChime();
       }
@@ -2122,9 +2136,12 @@ export default function Dashboard() {
       if (res.extractedText) {
         setInput(res.extractedText);
         setResult(null);
+        // Store the scan image so it can be attached to the queue entry when automation runs
+        lastScanImageRef.current = compressedDataUrl;
         const modelNote = res.usedModel ? ` (via ${res.usedModel})` : "";
         toast.success(`Report read successfully${modelNote}! Review the text and click Run Automation.`);
       } else {
+        lastScanImageRef.current = null;
         toast.error("Could not extract text from the image. Please try a clearer photo.");
       }
     } catch (err: unknown) {
@@ -4075,6 +4092,9 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                         const updated = { ...pendingResult!, patientName: modalName.trim(), patientAge: modalAge.trim() || undefined };
                         setResult(updated);
                         setQueue((prev) => [updated, ...prev]);
+                        if (updated.scanImageUrl) {
+                          try { localStorage.setItem(`mediflow_scan_${updated.id}`, updated.scanImageUrl); } catch { /* storage full */ }
+                        }
                         saveToDb(updated);
                         setShowPatientModal(false);
                         setPendingResult(null);
@@ -4091,6 +4111,9 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     const updated = { ...pendingResult!, patientName: undefined };
                     setResult(updated);
                     setQueue((prev) => [updated, ...prev]);
+                    if (updated.scanImageUrl) {
+                      try { localStorage.setItem(`mediflow_scan_${updated.id}`, updated.scanImageUrl); } catch { /* storage full */ }
+                    }
                     saveToDb(updated);
                     setShowPatientModal(false);
                     setPendingResult(null);
@@ -4105,6 +4128,9 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                     const updated = { ...pendingResult!, patientName: modalName.trim(), patientAge: modalAge.trim() || undefined };
                     setResult(updated);
                     setQueue((prev) => [updated, ...prev]);
+                    if (updated.scanImageUrl) {
+                      try { localStorage.setItem(`mediflow_scan_${updated.id}`, updated.scanImageUrl); } catch { /* storage full */ }
+                    }
                     saveToDb(updated);
                     setShowPatientModal(false);
                     setPendingResult(null);

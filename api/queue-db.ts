@@ -123,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ${initAuditLog},
           ${urgencyReasonsJson},
           ${medScanDataJson},
-          ${(c.type === "medscan" && c.scanImageUrl) ? c.scanImageUrl : null}
+          ${c.scanImageUrl ?? null}
         )
         ON CONFLICT (id) DO UPDATE SET
           content          = EXCLUDED.content,
