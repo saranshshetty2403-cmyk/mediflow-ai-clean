@@ -5,32 +5,52 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 // When OLLAMA_URL is set, the callModel function routes to the local Ollama server instead.
 import { getProviderMode } from "./ai-provider.js";
 
-// ── Non-medscan module prompts (unchanged) ─────────────────────────────────
+// ── Non-medscan module prompts (handwriting-aware) ─────────────────────────
 const MODULE_EXTRACT_PROMPTS: Record<string, string> = {
-  intake: `You are a clinical OCR assistant. Extract all clinical information from this patient intake form or medical document image.
-Include: patient demographics, chief complaint, vital signs, symptoms, medical history, medications, allergies.
-Return the extracted text in a clean, readable format suitable for clinical AI processing.
-If the image does not contain medical text, say "No clinical text found."`,
+  intake: `You are a clinical OCR assistant with expertise in reading both printed and handwritten medical documents.
+Your task is to extract all clinical information from this medical document image — which may be a handwritten nursing note, doctor's note, patient intake form, or any other clinical paperwork.
 
-  triage: `You are a clinical OCR assistant. Extract the patient complaint, symptoms, and triage information from this medical document image.
-Include: patient details, chief complaint, symptom description, onset, severity, and any urgency indicators.
-Return the extracted text in a clean format.
-If the image does not contain medical text, say "No clinical text found."`,
+IMPORTANT: Handwritten documents are fully supported. Even if the handwriting is messy, cursive, or uses medical abbreviations, do your best to transcribe and interpret the content accurately.
 
-  discharge: `You are a clinical OCR assistant. Extract all discharge information from this medical document image.
-Include: diagnosis, procedures, medications, instructions, follow-up appointments, and warning signs.
-Return the extracted text in a clean, readable format.
-If the image does not contain medical text, say "No clinical text found."`,
+Extract everything relevant: patient demographics, chief complaint, vital signs (BP, HR, RR, SpO2, temp), symptoms, medical history, current medications, allergies, and any clinical observations.
+Return the extracted text in clean, readable prose suitable for clinical AI processing.
+Only say "No clinical text found" if the image is completely blank or contains no medical content whatsoever.`,
 
-  urgency: `You are a clinical OCR assistant. Extract the symptom description and clinical information from this medical document image.
-Include: patient details, symptoms, vital signs, onset, severity, and relevant history.
-Return the extracted text in a clean format suitable for urgency scoring.
-If the image does not contain medical text, say "No clinical text found."`,
+  triage: `You are a clinical OCR assistant with expertise in reading both printed and handwritten medical documents.
+Your task is to extract triage-relevant information from this medical document image — which may be a handwritten nursing note, patient complaint form, or any clinical paperwork.
 
-  followup: `You are a clinical OCR assistant. Extract the patient information and care plan details from this medical document image.
-Include: patient details, diagnosis, medications, pending tests, referrals, and follow-up instructions.
-Return the extracted text in a clean, readable format.
-If the image does not contain medical text, say "No clinical text found."`,
+IMPORTANT: Handwritten documents are fully supported. Transcribe carefully and use clinical context to resolve ambiguous handwriting.
+
+Extract everything relevant: patient details, chief complaint, symptom description, onset, severity, vital signs, and any urgency indicators or red flags.
+Return the extracted text in clean, readable prose.
+Only say "No clinical text found" if the image is completely blank or contains no medical content whatsoever.`,
+
+  discharge: `You are a clinical OCR assistant with expertise in reading both printed and handwritten medical documents.
+Your task is to extract discharge-relevant information from this medical document image — which may be a handwritten discharge note, summary sheet, or any clinical paperwork.
+
+IMPORTANT: Handwritten documents are fully supported. Transcribe carefully and use clinical context to resolve ambiguous handwriting.
+
+Extract everything relevant: diagnosis, procedures performed, medications prescribed, discharge instructions, follow-up appointments, and warning signs to watch for.
+Return the extracted text in clean, readable prose.
+Only say "No clinical text found" if the image is completely blank or contains no medical content whatsoever.`,
+
+  urgency: `You are a clinical OCR assistant with expertise in reading both printed and handwritten medical documents.
+Your task is to extract urgency-relevant clinical information from this medical document image — which may be a handwritten nursing note, observation chart, or any clinical paperwork.
+
+IMPORTANT: Handwritten documents are fully supported. Transcribe carefully and use clinical context to resolve ambiguous handwriting.
+
+Extract everything relevant: patient details, symptoms, vital signs, onset, severity, relevant history, and any clinical observations indicating urgency or risk.
+Return the extracted text in clean, readable prose suitable for urgency scoring.
+Only say "No clinical text found" if the image is completely blank or contains no medical content whatsoever.`,
+
+  followup: `You are a clinical OCR assistant with expertise in reading both printed and handwritten medical documents.
+Your task is to extract follow-up relevant information from this medical document image — which may be a handwritten care plan, post-visit note, or any clinical paperwork.
+
+IMPORTANT: Handwritten documents are fully supported. Transcribe carefully and use clinical context to resolve ambiguous handwriting.
+
+Extract everything relevant: patient details, diagnosis, current medications, pending tests or investigations, referrals, and follow-up instructions.
+Return the extracted text in clean, readable prose.
+Only say "No clinical text found" if the image is completely blank or contains no medical content whatsoever.`,
 };
 
 // ── MediScan structured JSON prompt with few-shot examples ─────────────────

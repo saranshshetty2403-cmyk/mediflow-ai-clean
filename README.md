@@ -63,6 +63,7 @@ MediFlow AI is a web-based clinical workflow automation platform with six AI-pow
 | **Urgent Case Flagging** | Scores symptom descriptions for clinical urgency (1–10 scale) | ~3 min per case |
 | **Follow-Up Scheduling** | Drafts personalised follow-up plans with SBAR-format handoff reports | ~10 min per patient |
 | **MediScan (Prescription OCR)** | Extracts structured medication data from prescription images; generates PDF summaries | ~15 min per prescription |
+| **Scan Any Clinical Document** | All 5 modules accept scanned images as input; handwritten nursing notes, printed referral letters, observation charts, and clinical forms are all read and processed automatically | ~3 min per document |
 
 ---
 

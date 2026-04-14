@@ -23,6 +23,7 @@ import {
   Globe,
   Lock,
   ScanLine,
+  ImagePlus,
   MessageSquare,
   BookOpen,
   ExternalLink,
@@ -109,8 +110,15 @@ const features = [
     icon: ScanLine,
     title: "MediScan: Prescription OCR",
     description:
-      "Upload a photo of a handwritten prescription and receive a structured medication list with dosage, frequency, and drug interaction warnings powered by RxNorm.",
+      "Upload a photo of a handwritten or printed prescription and receive a structured medication list with dosage, frequency, and drug interaction warnings powered by RxNorm.",
     badge: "Vision",
+  },
+  {
+    icon: ImagePlus,
+    title: "Scan Any Clinical Document",
+    description:
+      "Every module accepts a scanned image as input. Handwritten nursing notes, printed referral letters, observation charts, and clinical forms are all read and processed automatically.",
+    badge: "Handwriting",
   },
   {
     icon: Mic,
@@ -218,6 +226,7 @@ const badgeStyle = (badge: string) => {
     case "Vision": return "bg-amber-500/15 text-amber-400";
     case "Multilingual": return "bg-purple-500/15 text-purple-400";
     case "Accessibility": return "bg-blue-500/15 text-blue-400";
+    case "Handwriting": return "bg-emerald-500/15 text-emerald-400";
     default: return "bg-[#0D7377]/15 text-[#0D7377]";
   }
 };

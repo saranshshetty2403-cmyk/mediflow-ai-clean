@@ -3594,7 +3594,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                           ? "bg-purple-900/20 border-purple-700/40 text-purple-300 hover:bg-purple-900/30"
                           : "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
                       } ${photoLoading ? "cursor-wait" : ""}`}
-                      title="Take a photo or upload an image of a patient report"
+                      title="Take a photo or upload an image of a patient report — supports handwritten notes, printed forms, and clinical charts"
                     >
                       {photoLoading ? (
                         <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading...</>
@@ -3649,7 +3649,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       <p className={`text-xs ${
                         isDark ? "text-purple-400/80" : "text-purple-600"
                       }`}>
-                        Gemma 4 31B is extracting the clinical text from your image. This takes a few seconds.
+                        Reading your document — handwritten notes, printed forms, and clinical charts are all supported. This takes a few seconds.
                       </p>
                     </div>
                     <Loader2 className={`w-5 h-5 animate-spin flex-shrink-0 ${
