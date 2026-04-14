@@ -4308,67 +4308,60 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                 </div>
               </div>
               <div className="flex flex-col gap-3 mb-5">
-                {/* Patient Name */}
-                {!medScanMissingModal.name && (
-                  <div>
-                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Patient Name <span className="text-[#ff3b3b]">*</span></label>
-                    <input
-                      type="text"
-                      placeholder="e.g. John Smith"
-                      value={medScanMissingModal.name}
-                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
-                      autoFocus
-                    />
+                {/* Patient Name — always shown */}
+                <div>
+                  <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Patient Name <span className="text-[#ff3b3b]">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Smith"
+                    value={medScanMissingModal.name}
+                    onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                    autoFocus
+                  />
+                </div>
+                {/* Age — always shown */}
+                <div>
+                  <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Age <span className="text-[#8892a4]">(optional)</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 45"
+                    value={medScanMissingModal.age}
+                    onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, age: e.target.value }))}
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                  />
+                </div>
+                {/* Sex — always shown */}
+                <div>
+                  <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Sex <span className="text-[#8892a4]">(optional)</span></label>
+                  <div className="flex gap-2">
+                    {["Male", "Female", "Other"].map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setMedScanMissingModal(prev => ({ ...prev, gender: g }))}
+                        className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                          medScanMissingModal.gender === g
+                            ? "bg-[var(--accent-muted)] border-[var(--accent-glow)] text-[var(--accent-primary)]"
+                            : "border-[rgba(255,255,255,0.08)] text-[#8892a4] hover:text-white hover:border-[rgba(255,255,255,0.2)]"
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
                   </div>
-                )}
-                {/* Age */}
-                {!medScanMissingModal.age && (
-                  <div>
-                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Age</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 45"
-                      value={medScanMissingModal.age}
-                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, age: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
-                    />
-                  </div>
-                )}
-                {/* Sex */}
-                {!medScanMissingModal.gender && (
-                  <div>
-                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Sex</label>
-                    <div className="flex gap-2">
-                      {["Male", "Female", "Other"].map(g => (
-                        <button
-                          key={g}
-                          onClick={() => setMedScanMissingModal(prev => ({ ...prev, gender: g }))}
-                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            medScanMissingModal.gender === g
-                              ? "bg-[var(--accent-muted)] border-[var(--accent-glow)] text-[var(--accent-primary)]"
-                              : "border-[rgba(255,255,255,0.08)] text-[#8892a4] hover:text-white hover:border-[rgba(255,255,255,0.2)]"
-                          }`}
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Doctor Name */}
-                {!medScanMissingModal.doctor && (
-                  <div>
-                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Prescribing Doctor</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Dr. Priya Sharma"
-                      value={medScanMissingModal.doctor}
-                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, doctor: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
-                    />
-                  </div>
-                )}
+                </div>
+                {/* Doctor Name — always shown */}
+                <div>
+                  <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Prescribing Doctor <span className="text-[#8892a4]">(optional)</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dr. Priya Sharma"
+                    value={medScanMissingModal.doctor}
+                    onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, doctor: e.target.value }))}
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                  />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
