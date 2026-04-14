@@ -73,7 +73,9 @@ function drawHeader(
   prescribingDoctor: string,
   docDate: string,
   docId: string,
-  clinicName: string
+  clinicName: string,
+  patientAge?: string,
+  patientGender?: string
 ): number {
   const W = doc.page.width;
   doc.rect(0, 0, W, 72).fill(TEAL);
@@ -95,6 +97,7 @@ function drawHeader(
   y = doc.y + 3;
 
   const meta: string[] = [];
+  if (patientAge || patientGender) meta.push(`Age/Sex: ${[patientAge, patientGender].filter(Boolean).join(" / ")}`);
   if (prescribingDoctor) meta.push(`Prescribing Doctor: ${prescribingDoctor}`);
   if (clinicName) meta.push(`Clinic: ${clinicName}`);
   if (meta.length > 0) {
@@ -127,6 +130,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     medications,
     rawText,
     patientName,
+    patientAge,
+    patientGender,
     prescribingDoctor,
     prescriptionDate,
     clinicName,
@@ -140,6 +145,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }>;
     rawText?: string;
     patientName?: string;
+    patientAge?: string;
+    patientGender?: string;
     prescribingDoctor?: string;
     prescriptionDate?: string;
     clinicName?: string;
@@ -160,6 +167,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   const safePatientName = clean(patientName) || "Patient";
   const safeDoctor      = clean(prescribingDoctor) || "Not specified";
   const safeClinic      = clean(clinicName) || "";
+  const safeAge         = clean(patientAge) || "";
+  const safeGender      = clean(patientGender) || "";
 
   // ── If rawText is provided, render it directly in the PDF ─────────────────
   if (rawText && (!medications || medications.length === 0)) {
@@ -180,7 +189,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       doc2.on("end", resolve);
       drawWatermark(doc2);
       drawFooter(doc2, docId);
-      let y2 = drawHeader(doc2, safePatientName, safeDoctor, docDate, docId, safeClinic);
+      let y2 = drawHeader(doc2, safePatientName, safeDoctor, docDate, docId, safeClinic, safeAge, safeGender);
       // Important notice
       y2 = checkPage(doc2, y2, 36, docId);
       doc2.rect(MARGIN, y2, contentWidth2, 28).fill("#fef3c7");
@@ -303,7 +312,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     drawWatermark(doc);
     drawFooter(doc, docId);
-    let y = drawHeader(doc, safePatientName, safeDoctor, docDate, docId, safeClinic);
+    let y = drawHeader(doc, safePatientName, safeDoctor, docDate, docId, safeClinic, safeAge, safeGender);
 
     // ── Important notice ─────────────────────────────────────────────────
     y = checkPage(doc, y, 36, docId);

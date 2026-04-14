@@ -186,6 +186,8 @@ interface MedScanResult {
     instructions: string;
   }>;
   patientName?: string;
+  patientAge?: string;
+  patientGender?: string;
   prescribingDoctor?: string;
   prescriptionDate?: string;
   clinicName?: string;
@@ -1291,7 +1293,9 @@ export default function Dashboard() {
   const [medScanQueueId, setMedScanQueueId] = useState<string | null>(null); // tracks if current scan is already in queue
   const medScanPendingEntryRef = useRef<AIResult | null>(null); // holds the pending queue entry until user acts
   const [expandedFdaWarning, setExpandedFdaWarning] = useState<string | null>(null); // drug name whose FDA warning panel is open
-
+  // MediScan missing patient details modal
+  const [showMedScanMissingModal, setShowMedScanMissingModal] = useState(false);
+  const [medScanMissingModal, setMedScanMissingModal] = useState<{ name: string; age: string; gender: string; doctor: string }>({ name: "", age: "", gender: "", doctor: "" });
   // Photo capture state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -2300,6 +2304,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       // Parse the JSON response
       let structuredData: {
         patientName?: string | null; doctorName?: string | null; clinicName?: string | null;
+        patientAge?: string | null; patientGender?: string | null;
         prescriptionDate?: string | null; legibilityScore?: number;
         medications: Array<{ name: string; strength?: string | null; form?: string | null;
           frequency?: string | null; duration?: string | null; route?: string | null;
@@ -2327,17 +2332,20 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
 
       let meds: MedScanResult["medications"] = [];
       let patientName: string | undefined;
+      let patientAge: string | undefined;
+      let patientGender: string | undefined;
       let prescribingDoctor: string | undefined;
       let prescriptionDate: string | undefined;
       let clinicName: string | undefined;
       let pharmacistNotes: string | undefined;
       let rawText = "";
       let legibilityScore: number | undefined;
-
       if (extractData.structuredData) {
-        // ── Happy path: API returned structured JSON ──────────────────────────
+        // ── Happy path: API returned structured JSON ──────────────────────
         const sd = extractData.structuredData;
         patientName = sd.patientName ?? undefined;
+        patientAge = sd.patientAge ?? undefined;
+        patientGender = sd.patientGender ?? undefined;
         prescribingDoctor = sd.doctorName ?? undefined;
         prescriptionDate = sd.prescriptionDate ?? undefined;
         clinicName = sd.clinicName ?? undefined;
@@ -2479,7 +2487,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       }
 
       toast.success(`Prescription scanned! ${meds.length} medication(s) extracted.`);
-      const medScanData: MedScanResult = { medications: meds, patientName, prescribingDoctor, prescriptionDate, clinicName, pharmacistNotes, rawExtractedText: rawText, legibilityScore };
+      const medScanData: MedScanResult = { medications: meds, patientName, patientAge, patientGender, prescribingDoctor, prescriptionDate, clinicName, pharmacistNotes, rawExtractedText: rawText, legibilityScore };
       setMedScanResult(medScanData);
 
       // Async DDI check — runs in background, updates result when done
@@ -2553,6 +2561,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       // Build the content string for the pending entry
       const medContent = [
         patientName ? `Patient: ${patientName}` : null,
+        patientAge || patientGender ? `Age/Sex: ${[patientAge, patientGender].filter(Boolean).join(" / ")}` : null,
         prescribingDoctor ? `Doctor: ${prescribingDoctor}` : null,
         prescriptionDate ? `Date: ${prescriptionDate}` : null,
         ``,
@@ -2586,6 +2595,7 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       // Never put raw JSON or AI reasoning text in the box.
       const cleanSummary = [
         patientName ? `Patient: ${patientName}` : null,
+        patientAge || patientGender ? `Age/Sex: ${[patientAge, patientGender].filter(Boolean).join(" / ")}` : null,
         prescribingDoctor ? `Doctor: ${prescribingDoctor}` : null,
         prescriptionDate ? `Date: ${prescriptionDate}` : null,
         clinicName ? `Clinic: ${clinicName}` : null,
@@ -2604,6 +2614,17 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
       ].filter(l => l !== null).join("\n");
 
       setEditedMedText(cleanSummary);
+      // After scan: check if any key patient fields are missing — prompt user to fill them in
+      const missingAny = !patientName || !patientAge || !patientGender || !prescribingDoctor;
+      if (missingAny) {
+        setMedScanMissingModal({
+          name: patientName ?? "",
+          age: patientAge ?? "",
+          gender: patientGender ?? "",
+          doctor: prescribingDoctor ?? "",
+        });
+        setShowMedScanMissingModal(true);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error(`Prescription scan failed: ${msg.slice(0, 150)}. Please try again.`, { duration: 8000 });
@@ -2736,6 +2757,8 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
         body: JSON.stringify({
           medications: expandedMedications,
           patientName: medScanResult.patientName || "Patient",
+          patientAge: medScanResult.patientAge,
+          patientGender: medScanResult.patientGender,
           prescribingDoctor: medScanResult.prescribingDoctor,
           prescriptionDate: medScanResult.prescriptionDate,
           clinicName: medScanResult.clinicName,
@@ -2865,6 +2888,8 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
           ? {
               medications: msd.medications.map(m => ({ ...m, frequency: expandFrequency(m.frequency || "") })),
               patientName: msd.patientName || item.patientName || "Patient",
+              patientAge: msd.patientAge || item.patientAge,
+              patientGender: msd.patientGender,
               prescribingDoctor: msd.prescribingDoctor,
               prescriptionDate: msd.prescriptionDate,
               clinicName: msd.clinicName,
@@ -3485,9 +3510,15 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
                       </div>
                     </div>
                     {/* Meta info */}
-                    {(medScanResult.patientName || medScanResult.prescribingDoctor || medScanResult.prescriptionDate || medScanResult.clinicName) && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {(medScanResult.patientName || medScanResult.patientAge || medScanResult.patientGender || medScanResult.prescribingDoctor || medScanResult.prescriptionDate || medScanResult.clinicName) && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {medScanResult.patientName && <div className="bg-gray-900 rounded-lg p-3 border border-gray-800"><p className="text-xs text-gray-500 mb-0.5">Patient</p><p className="text-sm font-medium text-white truncate">{medScanResult.patientName}</p></div>}
+                        {(medScanResult.patientAge || medScanResult.patientGender) && (
+                          <div className="bg-gray-900 rounded-lg p-3 border border-gray-800">
+                            <p className="text-xs text-gray-500 mb-0.5">Age / Sex</p>
+                            <p className="text-sm font-medium text-white truncate">{[medScanResult.patientAge, medScanResult.patientGender].filter(Boolean).join(" / ") || "—"}</p>
+                          </div>
+                        )}
                         {medScanResult.prescribingDoctor && <div className="bg-gray-900 rounded-lg p-3 border border-gray-800"><p className="text-xs text-gray-500 mb-0.5">Doctor</p><p className="text-sm font-medium text-white truncate">{medScanResult.prescribingDoctor}</p></div>}
                         {medScanResult.prescriptionDate && <div className="bg-gray-900 rounded-lg p-3 border border-gray-800"><p className="text-xs text-gray-500 mb-0.5">Date</p><p className="text-sm font-medium text-white truncate">{medScanResult.prescriptionDate}</p></div>}
                         {medScanResult.clinicName && <div className="bg-gray-900 rounded-lg p-3 border border-gray-800"><p className="text-xs text-gray-500 mb-0.5">Clinic</p><p className="text-sm font-medium text-white truncate">{medScanResult.clinicName}</p></div>}
@@ -4252,7 +4283,148 @@ NOW extract from the actual prescription image below and return ONLY the JSON ob
           </motion.div>
         )}
       </AnimatePresence>
-
+      {/* ── MediScan Missing Patient Details Modal ── */}
+      <AnimatePresence>
+        {showMedScanMissingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="neo-modal p-6 w-full max-w-sm"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[var(--accent-muted)] border border-[var(--accent-glow)] flex items-center justify-center flex-shrink-0">
+                  <User className="w-5 h-5 text-[var(--accent-primary)]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Complete Patient Details</h3>
+                  <p className="text-xs text-[#8892a4]">Some fields could not be read from the scan. Please fill them in.</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 mb-5">
+                {/* Patient Name */}
+                {!medScanMissingModal.name && (
+                  <div>
+                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Patient Name <span className="text-[#ff3b3b]">*</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Smith"
+                      value={medScanMissingModal.name}
+                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                      autoFocus
+                    />
+                  </div>
+                )}
+                {/* Age */}
+                {!medScanMissingModal.age && (
+                  <div>
+                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Age</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 45"
+                      value={medScanMissingModal.age}
+                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, age: e.target.value }))}
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                    />
+                  </div>
+                )}
+                {/* Sex */}
+                {!medScanMissingModal.gender && (
+                  <div>
+                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Sex</label>
+                    <div className="flex gap-2">
+                      {["Male", "Female", "Other"].map(g => (
+                        <button
+                          key={g}
+                          onClick={() => setMedScanMissingModal(prev => ({ ...prev, gender: g }))}
+                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                            medScanMissingModal.gender === g
+                              ? "bg-[var(--accent-muted)] border-[var(--accent-glow)] text-[var(--accent-primary)]"
+                              : "border-[rgba(255,255,255,0.08)] text-[#8892a4] hover:text-white hover:border-[rgba(255,255,255,0.2)]"
+                          }`}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Doctor Name */}
+                {!medScanMissingModal.doctor && (
+                  <div>
+                    <label className="text-xs font-medium text-[#e8f4f8] mb-1 block">Prescribing Doctor</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Dr. Priya Sharma"
+                      value={medScanMissingModal.doctor}
+                      onChange={(e) => setMedScanMissingModal(prev => ({ ...prev, doctor: e.target.value }))}
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[var(--accent-glow)] focus:shadow-[0_0_0_3px_var(--accent-muted)] transition-all"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowMedScanMissingModal(false)}
+                  className="flex-1 py-2 px-4 rounded-lg border border-[rgba(255,255,255,0.08)] text-sm text-[#8892a4] hover:text-white hover:border-[rgba(255,255,255,0.2)] transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => {
+                    const { name, age, gender, doctor } = medScanMissingModal;
+                    // Update medScanResult with the filled-in values
+                    setMedScanResult(prev => prev ? {
+                      ...prev,
+                      patientName: name.trim() || prev.patientName,
+                      patientAge: age.trim() || prev.patientAge,
+                      patientGender: gender.trim() || prev.patientGender,
+                      prescribingDoctor: doctor.trim() || prev.prescribingDoctor,
+                    } : prev);
+                    // Rewrite the editedMedText header lines to include the new values
+                    setEditedMedText(prev => {
+                      const lines = prev.split("\n");
+                      const headerEnd = lines.findIndex(l => l.startsWith("Medications ("));
+                      const bodyLines = headerEnd >= 0 ? lines.slice(headerEnd) : lines;
+                      const newName = name.trim() || medScanMissingModal.name;
+                      const newAge = age.trim() || medScanMissingModal.age;
+                      const newGender = gender.trim() || medScanMissingModal.gender;
+                      const newDoctor = doctor.trim() || medScanMissingModal.doctor;
+                      const headerLines = [
+                        newName ? `Patient: ${newName}` : null,
+                        newAge || newGender ? `Age/Sex: ${[newAge, newGender].filter(Boolean).join(" / ")}` : null,
+                        newDoctor ? `Doctor: ${newDoctor}` : null,
+                        "",
+                      ].filter(l => l !== null) as string[];
+                      return [...headerLines, ...bodyLines].join("\n");
+                    });
+                    // Also update the pending queue entry ref
+                    if (medScanPendingEntryRef.current) {
+                      medScanPendingEntryRef.current = {
+                        ...medScanPendingEntryRef.current,
+                        patientName: name.trim() || medScanPendingEntryRef.current.patientName,
+                        patientAge: age.trim() || medScanPendingEntryRef.current.patientAge,
+                      };
+                    }
+                    setShowMedScanMissingModal(false);
+                    toast.success("Patient details saved.", { duration: 2000 });
+                  }}
+                  className="flex-1 py-2 px-4 rounded-lg btn-run text-sm text-white font-semibold transition-colors"
+                >
+                  Save Details
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Clear All Confirmation Dialog */}
       <AnimatePresence>
         {showClearAllConfirm && (
