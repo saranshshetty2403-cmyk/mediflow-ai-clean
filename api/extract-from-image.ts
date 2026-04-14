@@ -389,6 +389,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── Ollama path: single local model call ──────────────────────────────────
   // When OLLAMA_URL is set, route the vision task to the local Ollama server.
   // gemma3:4b supports multimodal vision via the OpenAI-compatible endpoint.
+  // If Ollama fails or returns a non-vision response (e.g. text-only model),
+  // we automatically fall back to Google AI Studio for reliable image extraction.
+  const googleApiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (isOllama && ollamaUrl) {
     try {
       const messages: Array<{ role: string; content: unknown }> = [];
@@ -415,23 +418,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const data = await resp.json() as { choices: Array<{ message: { content: string } }> };
       const text = data.choices?.[0]?.message?.content?.trim() ?? null;
       if (!text) throw new Error("Ollama returned empty response");
+
+      // Detect if the model couldn't actually see the image (text-only model response)
+      // Common patterns when a text-only model receives an image it can't process:
+      const visionFailurePatterns = [
+        "please provide",
+        "provide me with the image",
+        "provide the image",
+        "share the image",
+        "upload the image",
+        "send the image",
+        "i'm ready to analyze",
+        "i am ready to analyze",
+        "ready to analyze it",
+        "cannot see",
+        "can't see",
+        "no image",
+        "don't see an image",
+        "do not see an image",
+      ];
+      const lowerText = text.toLowerCase();
+      const isVisionFailure = visionFailurePatterns.some(p => lowerText.includes(p));
+
+      if (isVisionFailure) {
+        // Ollama model can't process images — fall through to Google AI Studio
+        console.warn(`[extract-from-image] Ollama model ${ollamaModel} cannot process images, falling back to Google AI Studio`);
+        throw new Error("Ollama model does not support vision — falling back to Google AI Studio");
+      }
+
       if (isMedscan) {
         const parsed = JSON.parse(text);
         return res.status(200).json({ structuredData: parsed, usedModel: `${ollamaModel} (Ollama local)`, provider: "ollama" });
       }
       return res.status(200).json({ extractedText: text, usedModel: `${ollamaModel} (Ollama local)`, provider: "ollama" });
     } catch (err) {
-      return res.status(503).json({ error: `Ollama vision inference failed: ${err instanceof Error ? err.message : String(err)}` });
+      // If Ollama fails for any reason (including vision failure), fall back to Google AI Studio
+      if (!googleApiKey) {
+        return res.status(503).json({ error: `Ollama vision inference failed and no Google AI Studio key configured: ${err instanceof Error ? err.message : String(err)}` });
+      }
+      console.warn(`[extract-from-image] Ollama failed, falling back to Google AI Studio: ${err instanceof Error ? err.message : String(err)}`);
+      // Fall through to Google AI Studio path below
     }
   }
 
   // ── Google AI Studio path (default): race all models in parallel ───────────
   // All models run simultaneously for speed. If multiple succeed, the one with
   // the lowest index in MODELS wins (Gemini 2.5 Flash preferred for consistency).
+  // Use googleApiKey for the Google AI Studio path (apiKey may be "ollama" if in Ollama mode)
+  const effectiveApiKey = googleApiKey || apiKey;
+  if (!effectiveApiKey) return res.status(500).json({ error: "No API key available for image extraction" });
+
   const controllers = MODELS.map(() => new AbortController());
 
   const promises = MODELS.map((def, i) =>
-    callModel(def, apiKey!, extractPrompt, systemPrompt, mimeType, base64Data, isMedscan, controllers[i].signal).then(result => ({
+    callModel(def, effectiveApiKey, extractPrompt, systemPrompt, mimeType, base64Data, isMedscan, controllers[i].signal).then(result => ({
       ...result,
       index: i,
     }))
